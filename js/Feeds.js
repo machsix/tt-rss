@@ -374,22 +374,6 @@ define(["dojo/_base/declare"], function (declare) {
 				App.updateTitle();
 			}
 		},
-		uncatchupAll: function() {
-			const str = __("Mark all articles as unread?");
-
-			if (App.getInitParam("confirm_feed_uncatchup") != 1 || confirm(str)) {
-
-				Notify.progress("Marking all feeds as unread...");
-
-				xhrPost("backend.php", {op: "feeds", method: "uncatchupAll"}, () => {
-					this.requestCounters(true);
-					this.reloadCurrent();
-				});
-
-				//App.global_unread = 0;
-				App.updateTitle();
-			}
-		},
 		catchupFeed: function(feed, is_cat, mode) {
 			if (is_cat == undefined) is_cat = false;
 

@@ -226,7 +226,6 @@
                         <div dojoType="dijit.MenuItem" onclick="App.onActionSelected('qmcRemoveFeed')"><?php echo __('Unsubscribe') ?></div>
                         <div dojoType="dijit.MenuItem" disabled="1"><?php echo __('All feeds:') ?></div>
                         <div dojoType="dijit.MenuItem" onclick="App.onActionSelected('qmcCatchupAll')"><?php echo __('Mark as read') ?></div>
-                        <div dojoType="dijit.MenuItem" onclick="App.onActionSelected('qmcUncatchupAll')"><?php echo __('Mark as unread') ?></div>
                         <div dojoType="dijit.MenuItem" onclick="App.onActionSelected('qmcShowOnlyUnread')"><?php echo __('(Un)hide read feeds') ?></div>
                         <div dojoType="dijit.MenuItem" disabled="1"><?php echo __('Other actions:') ?></div>
                         <div dojoType="dijit.MenuItem" onclick="App.onActionSelected('qmcToggleWidescreen')"><?php echo __('Toggle widescreen mode') ?></div>

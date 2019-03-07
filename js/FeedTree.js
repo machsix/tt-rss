@@ -112,12 +112,6 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 					onClick: function() {
 						Feeds.catchupAll();
 					}}));
-				
-        menu.addChild(new dijit.MenuItem({
-					label: __("Mark all feeds as unread"),
-					onClick: function() {
-						Feeds.uncatchupAll();
-					}}));
 
 				menu.bindDomNode(tnode.domNode);
 				tnode._menu = menu;

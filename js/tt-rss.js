@@ -543,9 +543,6 @@ require(["dojo/_base/kernel",
 						case "qmcCatchupAll":
 							Feeds.catchupAll();
 							break;
-						case "qmcUncatchupAll":
-							Feeds.uncatchupAll();
-							break;
 						case "qmcShowOnlyUnread":
 							Feeds.toggleUnread();
 							break;

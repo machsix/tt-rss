@@ -450,14 +450,6 @@ class Feeds extends Handler_Protected {
 		CCache::zero_all($_SESSION["uid"]);
 	}
 
-  function uncatchupAll() {
-		$sth = $this->pdo->prepare("UPDATE ttrss_user_entries SET
-						last_read = NULL, unread = true WHERE unread = false AND owner_uid = ?");
-		$sth->execute([$_SESSION['uid']]);
-
-		CCache::zero_all($_SESSION["uid"]);
-	}
-
 	function view() {
 		$reply = array();
 
@@ -712,7 +704,7 @@ class Feeds extends Handler_Protected {
 		print "</section>";
 
 		print "<footer>";
-		print "<button dojoType='dijit.form.Button' class='alt-primary' type='submit'
+		print "<button dojoType='dijit.form.Button' class='alt-primary' type='submit' 
 				onclick=\"return dijit.byId('feedAddDlg').execute()\">".__('Subscribe')."</button>";
 
 		print "<button dojoType='dijit.form.Button' onclick=\"return dijit.byId('feedAddDlg').hide()\">".__('Cancel')."</button>";
