@@ -609,10 +609,10 @@ body.ttrss_main #feeds-holder #feedTree i.icon.icon-archive {
   color: #c77b2e;
 }
 body.ttrss_main #feeds-holder #feedTree i.icon.icon-star {
+  position: relative;
   color: #ffc069;
   font-size: 21px;
-  top: -4px;
-  left: -4px;
+  left: -2px;
 }
 body.ttrss_main #feeds-holder #feedTree i.icon.icon-rss_feed {
   color: #ff7c4b;
@@ -621,8 +621,9 @@ body.ttrss_main #feeds-holder #feedTree i.icon.icon-whatshot {
   color: #69C671;
 }
 body.ttrss_main #feeds-holder #feedTree i.icon.icon-restore {
+  position: relative;
+  top: -1px;
   font-weight: bold;
-  left: -3px;
   color: #b87d2c;
 }
 body.ttrss_main #headlines-wrap-inner {
@@ -1015,8 +1016,8 @@ body.ttrss_utility hr {
   border: 0px solid #ccc;
   border-bottom-width: 1px;
 }
-body.ttrss_main .insensitive,
-body.ttrss_utility .insensitive {
+body.ttrss_main .text-muted,
+body.ttrss_utility .text-muted {
   color: #ccc;
 }
 body.ttrss_main .small,
@@ -1651,8 +1652,7 @@ body.ttrss_utility.ttrss_login .container .content {
   padding: 40px;
 }
 body.ttrss_utility.installer,
-body.ttrss_utility.feed_debugger,
-body.ttrss_utility.ttrss_zoom {
+body.ttrss_utility.feed_debugger {
   margin: 2em;
 }
 body.ttrss_utility.share_popup {
@@ -1973,7 +1973,7 @@ body.flat.ttrss_main .dijitCheckBox:not(.dijitChecked)::before {
   color: #999999;
   background: #222;
 }
-body.flat.ttrss_main .insensitive {
+body.flat.ttrss_main .text-muted {
   color: #999999;
 }
 body.flat.ttrss_main .dijitAccordionInnerContainerSelected .dijitAccordionTitle {

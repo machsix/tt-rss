@@ -473,6 +473,7 @@ class Pref_Feeds extends Handler_Protected {
 
 		$icon_file = $tmp_file;
 		$feed_id = clean($_REQUEST["feed_id"]);
+		$rc = 2; // failed
 
 		if (is_file($icon_file) && $feed_id) {
 			if (filesize($icon_file) < 65535) {
@@ -492,21 +493,15 @@ class Pref_Feeds extends Handler_Protected {
 
 						$rc = 0;
 					}
-				} else {
-					$rc = 2;
 				}
 			} else {
 				$rc = 1;
 			}
-		} else {
-			$rc = 2;
 		}
 
 		if (is_file($icon_file)) @unlink($icon_file);
 
-		print "<script type=\"text/javascript\">";
-		print "parent.CommonDialogs.uploadIconHandler($rc);";
-		print "</script>";
+		print $rc;
 		return;
 	}
 
@@ -766,20 +761,16 @@ class Pref_Feeds extends Handler_Protected {
 
 			/* Icon */
 
-			print "<img class='feedIcon' src=\"".Feeds::getFeedIcon($feed_id)."\">";
+			print "<img class='feedIcon feed-editor-icon' src=\"".Feeds::getFeedIcon($feed_id)."\">";
 
-			print "<iframe name='icon_upload_iframe'
-				style='width: 400px; height: 100px; display: none;'></iframe>";
-
-			print "<form style='display : block' target='icon_upload_iframe'
-			enctype='multipart/form-data' method='POST'
-			action='backend.php'>
+			print "<form onsubmit='return false;' id='feed_icon_upload_form'
+				enctype='multipart/form-data' method='POST'>
 			<label class='dijitButton'>".__("Choose file...")."
 				<input style='display: none' id='icon_file' size='10' name='icon_file' type='file'>
 			</label>
 			<input type='hidden' name='op' value='pref-feeds'>
-			<input type='hidden' name='feed_id' value=\"$feed_id\">
-			<input type='hidden' name='method' value=\"uploadicon\">
+			<input type='hidden' name='feed_id' value='$feed_id'>
+			<input type='hidden' name='method' value='uploadicon'>
 			<button dojoType='dijit.form.Button' onclick=\"return CommonDialogs.uploadFeedIcon();\"
 				type='submit'>".__('Replace')."</button>
 			<button class='alt-danger' dojoType='dijit.form.Button' onclick=\"return CommonDialogs.removeFeedIcon($feed_id);\"
@@ -1487,7 +1478,7 @@ class Pref_Feeds extends Handler_Protected {
 				"onclick=\"CommonDialogs.editFeed(".$line["id"].")\">".
 				htmlspecialchars($line["title"])."</a>";
 
-			print "</td><td class='insensitive' align='right'>";
+			print "</td><td class='text-muted' align='right'>";
 			print make_local_datetime($line['last_article'], false);
 			print "</td>";
 			print "</tr>";
@@ -1544,7 +1535,7 @@ class Pref_Feeds extends Handler_Protected {
 				"onclick=\"CommonDialogs.editFeed(".$line["id"].")\">".
 				htmlspecialchars($line["title"])."</a>: ";
 
-			print "<span class=\"insensitive\">";
+			print "<span class=\"text-muted\">";
 			print htmlspecialchars($line["last_error"]);
 			print "</span>";
 
@@ -1693,7 +1684,7 @@ class Pref_Feeds extends Handler_Protected {
 		print "</fieldset>";
 
 		print "<footer>
-			<button dojoType='dijit.form.Button' type='submit' class='alt-primary' onclick=\"return dijit.byId('batchSubDlg').execute()\">".__('Subscribe')."</button>
+			<button dojoType='dijit.form.Button' type='submit' class='alt-primary'>".__('Subscribe')."</button>
 			<button dojoType='dijit.form.Button' onclick=\"return dijit.byId('batchSubDlg').hide()\">".__('Cancel')."</button>
 			</footer>";
 	}
@@ -1704,6 +1695,13 @@ class Pref_Feeds extends Handler_Protected {
 		$login = clean($_REQUEST['login']);
 		$pass = trim(clean($_REQUEST['pass']));
 
+		$csth = $this->pdo->prepare("SELECT id FROM ttrss_feeds
+						WHERE feed_url = ? AND owner_uid = ?");
+
+		$isth = $this->pdo->prepare("INSERT INTO ttrss_feeds
+							(owner_uid,feed_url,title,cat_id,auth_login,auth_pass,update_method,auth_pass_encrypted)
+						VALUES (?, ?, '[Unknown]', ?, ?, ?, 0, false)");
+
 		foreach ($feeds as $feed) {
 			$feed = trim($feed);
 
@@ -1711,16 +1709,10 @@ class Pref_Feeds extends Handler_Protected {
 
 				$this->pdo->beginTransaction();
 
-				$sth = $this->pdo->prepare("SELECT id FROM ttrss_feeds
-						WHERE feed_url = ? AND owner_uid = ?");
-				$sth->execute([$feed, $_SESSION['uid']]);
+				$csth->execute([$feed, $_SESSION['uid']]);
 
-				if (!$sth->fetch()) {
-					$sth = $this->pdo->prepare("INSERT INTO ttrss_feeds
-							(owner_uid,feed_url,title,cat_id,auth_login,auth_pass,update_method,auth_pass_encrypted)
-						VALUES (?, ?, '[Unknown]', ?, ?, ?, 0, false)");
-
-					$sth->execute([$_SESSION['uid'], $feed, $cat_id ? $cat_id : null, $login, $pass]);
+				if (!$csth->fetch()) {
+					$isth->execute([$_SESSION['uid'], $feed, $cat_id ? $cat_id : null, $login, $pass]);
 				}
 
 				$this->pdo->commit();

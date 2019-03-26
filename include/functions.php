@@ -1,6 +1,6 @@
 <?php
 	define('EXPECTED_CONFIG_VERSION', 26);
-	define('SCHEMA_VERSION', 136);
+	define('SCHEMA_VERSION', 137);
 
 	define('LABEL_BASE_INDEX', -1024);
 	define('PLUGIN_FEED_BASE_INDEX', -128);
@@ -562,7 +562,7 @@
 			libxml_use_internal_errors(true);
 
 			$doc = new DOMDocument();
-			$doc->loadHTML($html);
+			$doc->loadHTML('<?xml encoding="UTF-8">' . $html);
 			$xpath = new DOMXPath($doc);
 
 			$base = $xpath->query('/html/head/base[@href]');
@@ -1222,40 +1222,36 @@
 
 	function get_hotkeys_map() {
 		$hotkeys = array(
-	//			"navigation" => array(
 			"k" => "next_feed",
 			"j" => "prev_feed",
 			"n" => "next_article",
 			"p" => "prev_article",
-			"(38)|up" => "prev_article",
-			"(40)|down" => "next_article",
-	//				"^(38)|Ctrl-up" => "prev_article_noscroll",
-	//				"^(40)|Ctrl-down" => "next_article_noscroll",
-			"(191)|/" => "search_dialog",
-	//			"article" => array(
+			"(38)|Up" => "prev_article",
+			"(40)|Down" => "next_article",
+			"*(38)|Shift+Up" => "article_scroll_up",
+			"*(40)|Shift+Down" => "article_scroll_down",
+			"^(38)|Ctrl+Up" => "prev_article_noscroll",
+			"^(40)|Ctrl+Down" => "next_article_noscroll",
+			"/" => "search_dialog",
 			"s" => "toggle_mark",
-			"*s" => "toggle_publ",
+			"S" => "toggle_publ",
 			"u" => "toggle_unread",
-			"*t" => "edit_tags",
+			"T" => "edit_tags",
 			"o" => "open_in_new_window",
 			"c p" => "catchup_below",
 			"c n" => "catchup_above",
-			"*n" => "article_scroll_down",
-			"*p" => "article_scroll_up",
-			"*(38)|Shift+up" => "article_scroll_up",
-			"*(40)|Shift+down" => "article_scroll_down",
-			"a *w" => "toggle_widescreen",
+			"N" => "article_scroll_down",
+			"P" => "article_scroll_up",
+			"a W" => "toggle_widescreen",
 			"a e" => "toggle_embed_original",
 			"e" => "email_article",
 			"a q" => "close_article",
-	//			"article_selection" => array(
 			"a a" => "select_all",
 			"a u" => "select_unread",
-			"a *u" => "select_marked",
+			"a U" => "select_marked",
 			"a p" => "select_published",
 			"a i" => "select_invert",
 			"a n" => "select_none",
-	//			"feed" => array(
 			"f r" => "feed_refresh",
 			"f a" => "feed_unhide_read",
 			"f s" => "feed_subscribe",
@@ -1263,30 +1259,25 @@
 			"f q" => "feed_catchup",
 			"f x" => "feed_reverse",
 			"f g" => "feed_toggle_vgroup",
-			"f *d" => "feed_debug_update",
-			"f *g" => "feed_debug_viewfeed",
-			"f *c" => "toggle_combined_mode",
+			"f D" => "feed_debug_update",
+			"f G" => "feed_debug_viewfeed",
+			"f C" => "toggle_combined_mode",
 			"f c" => "toggle_cdm_expanded",
-			"*q" => "catchup_all",
+			"Q" => "catchup_all",
 			"x" => "cat_toggle_collapse",
-	//			"goto" => array(
 			"g a" => "goto_all",
 			"g f" => "goto_fresh",
 			"g s" => "goto_marked",
 			"g p" => "goto_published",
 			"g t" => "goto_tagcloud",
-			"g *p" => "goto_prefs",
-	//			"other" => array(
+			"g P" => "goto_prefs",
 			"r" => "select_article_cursor",
 			"c l" => "create_label",
 			"c f" => "create_filter",
 			"c s" => "collapse_sidebar",
-			"a *n" => "toggle_night_mode",
-			"^(191)|Ctrl+/" => "help_dialog",
+			"a N" => "toggle_night_mode",
+			"?" => "help_dialog",
 		);
-
-		$hotkeys["^(38)|Ctrl-up"] = "prev_article_noscroll";
-		$hotkeys["^(40)|Ctrl-down"] = "next_article_noscroll";
 
 		foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_HOTKEY_MAP) as $plugin) {
 			$hotkeys = $plugin->hook_hotkey_map($hotkeys);
@@ -1527,17 +1518,13 @@
 	// plugins work on original source URLs used before caching
 
 	function rewrite_cached_urls($str) {
-		$charset_hack = '<head>
-				<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-			</head>';
-
 		$res = trim($str); if (!$res) return '';
 
 		$doc = new DOMDocument();
-		$doc->loadHTML($charset_hack . $res);
+		$doc->loadHTML('<?xml encoding="UTF-8">' . $res);
 		$xpath = new DOMXPath($doc);
 
-		$entries = $xpath->query('(//img[@src]|//video[@poster]|//video/source[@src]|//audio/source[@src])');
+		$entries = $xpath->query('(//img[@src]|//picture/source[@src]|//video[@poster]|//video/source[@src]|//audio/source[@src])');
 
 		$need_saving = false;
 
@@ -1553,6 +1540,8 @@
 
 					// this is strictly cosmetic
 					if ($entry->tagName == 'img') {
+						$suffix = ".png";
+					} else if ($entry->parentNode && $entry->parentNode->tagName == "picture") {
 						$suffix = ".png";
 					} else if ($entry->parentNode && $entry->parentNode->tagName == "video") {
 						$suffix = ".mp4";
@@ -1587,21 +1576,15 @@
 
 		$res = trim($str); if (!$res) return '';
 
-		$charset_hack = '<head>
-				<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
-			</head>';
-
-		$res = trim($res); if (!$res) return '';
-
 		libxml_use_internal_errors(true);
 
 		$doc = new DOMDocument();
-		$doc->loadHTML($charset_hack . $res);
+		$doc->loadHTML('<?xml encoding="UTF-8">' . $res);
 		$xpath = new DOMXPath($doc);
 
 		$rewrite_base_url = $site_url ? $site_url : get_self_url_prefix();
 
-		$entries = $xpath->query('(//a[@href]|//img[@src]|//video/source[@src]|//audio/source[@src])');
+		$entries = $xpath->query('(//a[@href]|//img[@src]|//video/source[@src]|//audio/source[@src]|//picture/source[@src])');
 
 		foreach ($entries as $entry) {
 
@@ -1695,7 +1678,7 @@
 			'dt', 'em', 'footer', 'figure', 'figcaption',
 			'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'header', 'hr', 'html', 'i',
 			'img', 'ins', 'kbd', 'li', 'main', 'mark', 'nav', 'noscript',
-			'ol', 'p', 'pre', 'q', 'ruby', 'rp', 'rt', 's', 'samp', 'section',
+			'ol', 'p', 'picture', 'pre', 'q', 'ruby', 'rp', 'rt', 's', 'samp', 'section',
 			'small', 'source', 'span', 'strike', 'strong', 'sub', 'summary',
 			'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'time',
 			'tr', 'track', 'tt', 'u', 'ul', 'var', 'wbr', 'video', 'xml:namespace' );
@@ -2122,7 +2105,7 @@
 		libxml_use_internal_errors(true);
 
 		$doc = new DOMDocument();
-		$doc->loadHTML($content);
+		$doc->loadHTML('<?xml encoding="UTF-8">' . $content);
 		$xpath = new DOMXPath($doc);
 		$entries = $xpath->query('/html/head/link[@rel="alternate" and '.
 			'(contains(@type,"rss") or contains(@type,"atom"))]|/html/head/link[@rel="feed"]');
@@ -2143,7 +2126,7 @@
 	}
 
 	function is_html($content) {
-		return preg_match("/<html|DOCTYPE html/i", substr($content, 0, 100)) !== 0;
+		return preg_match("/<html|DOCTYPE html/i", substr($content, 0, 8192)) !== 0;
 	}
 
 	function url_is_html($url, $login = false, $pass = false) {
