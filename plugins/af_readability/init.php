@@ -38,13 +38,17 @@ class Af_Readability extends Plugin {
 		$host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
 		$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
 
+		// Note: we have to install the hook even if disabled because init() is being run before plugin data has loaded
+		// so we can't check for our storage-set options here
+		$host->add_hook($host::HOOK_GET_FULL_TEXT, $this);
+
 		$host->add_filter_action($this, "action_inline", __("Inline content"));
 	}
 
 	function hook_prefs_tab($args) {
 		if ($args != "prefFeeds") return;
 
-		print "<div dojoType='dijit.layout.AccordionPane' 
+		print "<div dojoType='dijit.layout.AccordionPane'
 			title=\"<i class='material-icons'>extension</i> ".__('Readability settings (af_readability)')."\">";
 
 		if (version_compare(PHP_VERSION, '5.6.0', '<')) {
@@ -80,7 +84,7 @@ class Af_Readability extends Plugin {
 			print "<fieldset>";
 			print "<label class='checkbox'> ";
 			print_checkbox("enable_share_anything", $enable_share_anything);
-			print " " . __("Use Readability for pages shared via bookmarklet.");
+			print " " . __("Provide full-text services to core code (bookmarklets) and other plugins");
 			print "</label>";
 			print "</fieldset>";
 
@@ -169,12 +173,12 @@ class Af_Readability extends Plugin {
 		if ($tmp && mb_strlen($tmp) < 1024 * 500) {
 			$tmpdoc = new DOMDocument("1.0", "UTF-8");
 
-			if (!$tmpdoc->loadHTML($tmp))
+			if (!@$tmpdoc->loadHTML($tmp))
 				return false;
 
 			// this is the worst hack yet :(
 			if (strtolower($tmpdoc->encoding) != 'utf-8') {
-				$tmp = preg_replace("/<meta.*?charset.*?\/>/i", "", $tmp);
+				$tmp = preg_replace("/<meta.*?charset.*?\/?>/i", "", $tmp);
 				$tmp = mb_convert_encoding($tmp, 'utf-8', $tmpdoc->encoding);
 			}
 
@@ -235,6 +239,24 @@ class Af_Readability extends Plugin {
 
 		return $this->process_article($article);
 
+	}
+
+	function hook_get_full_text($link)
+	{
+		$enable_share_anything = $this->host->get($this, "enable_share_anything");
+
+		if ($enable_share_anything) {
+			$extracted_content = $this->extract_content($link);
+
+			# let's see if there's anything of value in there
+			$content_test = trim(strip_tags(sanitize($extracted_content)));
+
+			if ($content_test) {
+				return $extracted_content;
+			}
+		}
+
+		return false;
 	}
 
 	function api_version() {

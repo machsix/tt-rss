@@ -2,7 +2,10 @@
 define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"], function (declare, domConstruct) {
 
 	return declare("fox.FeedTree", dijit.Tree, {
-		_onKeyPress: function(/* Event */ e) {
+		_onContainerKeydown: function(/* Event */ e) {
+			return; // Stop dijit.Tree from interpreting keystrokes
+		},
+		_onContainerKeypress: function(/* Event */ e) {
 			return; // Stop dijit.Tree from interpreting keystrokes
 		},
 		_createTreeNode: function(args) {
@@ -132,7 +135,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 
 			args.item.unread > 0 || args.item.auxcounter > 0 ? Element.show(ctr) : Element.hide(ctr);
 
-			args.item.unread == 0 && args.item.auxcounter > 0 ? ctr.addClassName("aux") : ctr.removeClassName("aux");
+			args.item.unread <= 0 && args.item.auxcounter > 0 ? ctr.addClassName("aux") : ctr.removeClassName("aux");
 
 			domConstruct.place(ctr, tnode.rowNode, 'first');
 			tnode.counterNode = ctr;
@@ -168,7 +171,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 							Element.show(ctr) :
 						Element.hide(ctr);
 
-					item.unread == 0 && item.auxcounter > 0 ? ctr.addClassName("aux") : ctr.removeClassName("aux");
+					item.unread <= 0 && item.auxcounter > 0 ? ctr.addClassName("aux") : ctr.removeClassName("aux");
 
 				}
 			}
@@ -181,7 +184,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			return (!item || this.model.mayHaveChildren(item)) ? (opened ? "dijitFolderOpened" : "dijitFolderClosed") : "feed-icon";
 		},
 		getLabelClass: function (item, opened) {
-			return (item.unread == 0) ? "dijitTreeLabel" : "dijitTreeLabel Unread";
+			return (item.unread <= 0) ? "dijitTreeLabel" : "dijitTreeLabel Unread";
 		},
 		getRowClass: function (item, opened) {
 			let rc = (!item.error || item.error == '') ? "dijitTreeRow" :
@@ -350,7 +353,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 					if (node) {
 						const check_unread = tree.model.getFeedUnread(bare_id, true);
 
-						if (hide && cat_unread == 0 && check_unread == 0 && (id != "CAT:-1" || !show_special)) {
+						if (hide && cat_unread <= 0 && check_unread <= 0 && (id != "CAT:-1" || !show_special)) {
 							Effect.Fade(node[0].rowNode, {duration : 0.3,
 								queue: { position: 'end', scope: 'FFADE-' + id, limit: 1 }});
 						} else {
@@ -394,7 +397,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 					const node = tree._itemNodesMap[id];
 
 					if (node) {
-						if (hide && unread == 0 && !has_error && (bare_id > 0 || bare_id < _label_base_index || !show_special)) {
+						if (hide && unread <= 0 && !has_error && (bare_id > 0 || bare_id < _label_base_index || !show_special)) {
 							Effect.Fade(node[0].rowNode, {duration : 0.3,
 								queue: { position: 'end', scope: 'FFADE-' + id, limit: 1 }});
 						} else {

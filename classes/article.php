@@ -100,15 +100,12 @@ class Article extends Handler_Protected {
 			$pluginhost->load_all(PluginHost::KIND_ALL, $owner_uid);
 			$pluginhost->load_data();
 
-			$af_readability = $pluginhost->get_plugin("Af_Readability");
+			foreach ($pluginhost->get_hooks(PluginHost::HOOK_GET_FULL_TEXT) as $p) {
+				$extracted_content = $p->hook_get_full_text($url);
 
-			if ($af_readability) {
-				$enable_share_anything = $pluginhost->get($af_readability, "enable_share_anything");
-
-				if ($enable_share_anything) {
-					$extracted_content = $af_readability->extract_content($url);
-
-					if ($extracted_content) $content = $extracted_content;
+				if ($extracted_content) {
+					$content = $extracted_content;
+					break;
 				}
 			}
 		}
@@ -151,6 +148,16 @@ class Article extends Handler_Protected {
 					content = ?, content_hash = ? WHERE id = ?");
 				$sth->execute([$content, $content_hash, $ref_id]);
 
+				if (DB_TYPE == "pgsql"){
+					$sth = $pdo->prepare("UPDATE ttrss_entries
+					SET tsvector_combined = to_tsvector( :ts_content)
+					WHERE id = :id");
+					$params = [
+						":ts_content" => mb_substr(strip_tags($content ), 0, 900000),
+						":id" => $ref_id];
+					$sth->execute($params);
+				}
+				
 				$sth = $pdo->prepare("UPDATE ttrss_user_entries SET published = true,
 						last_published = NOW() WHERE
 						int_id = ? AND owner_uid = ?");
@@ -186,7 +193,15 @@ class Article extends Handler_Protected {
 
 			if ($row = $sth->fetch()) {
 				$ref_id = $row["id"];
-
+				if (DB_TYPE == "pgsql"){
+					$sth = $pdo->prepare("UPDATE ttrss_entries
+					SET tsvector_combined = to_tsvector( :ts_content)
+					WHERE id = :id");
+					$params = [
+						":ts_content" => mb_substr(strip_tags($content ), 0, 900000),
+						":id" => $ref_id];
+					$sth->execute($params);
+				}
 				$sth = $pdo->prepare("INSERT INTO ttrss_user_entries
 					(ref_id, uuid, feed_id, orig_feed_id, owner_uid, published, tag_cache, label_cache,
 						last_read, note, unread, last_published)
@@ -291,9 +306,9 @@ class Article extends Handler_Protected {
 			$sth->execute([$int_id, $_SESSION['uid']]);
 
 			foreach ($tags as $tag) {
-				$tag = sanitize_tag($tag);
+				$tag = Article::sanitize_tag($tag);
 
-				if (!tag_is_valid($tag)) {
+				if (!Article::tag_is_valid($tag)) {
 					continue;
 				}
 
@@ -516,7 +531,7 @@ class Article extends Handler_Protected {
 				$rv .= "<br clear='both'/>";
 			}
 
-			$rv .= "<div class=\"attachments\" dojoType=\"dijit.form.DropDownButton\">".
+			$rv .= "<div class=\"attachments\" dojoType=\"fox.form.DropDownButton\">".
 				"<span>" . __('Attachments')."</span>";
 
 			$rv .= "<div dojoType=\"dijit.Menu\" style=\"display: none;\">";
@@ -783,6 +798,27 @@ class Article extends Handler_Protected {
 			Labels::update_cache($owner_uid, $id, array("no-labels" => 1));
 
 		return $rv;
+	}
+
+	static function sanitize_tag($tag) {
+		$tag = trim($tag);
+
+		$tag = mb_strtolower($tag, 'utf-8');
+
+		$tag = preg_replace('/[,\'\"\+\>\<]/', "", $tag);
+
+		if (DB_TYPE == "mysql") {
+			$tag = preg_replace('/[\x{10000}-\x{10FFFF}]/u', "\xEF\xBF\xBD", $tag);
+		}
+
+		return $tag;
+	}
+
+	static function tag_is_valid($tag) {
+		if (!$tag || is_numeric($tag) || mb_strlen($tag) > 250)
+			return false;
+
+		return true;
 	}
 
 }
