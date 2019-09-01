@@ -1286,6 +1286,7 @@
 		if ($need_saving) {
 			$doc->removeChild($doc->firstChild); //remove doctype
 			$res = $doc->saveHTML();
+			$res = str_replace('&amp;', '&', $res);
 		}
 
 		return $res;
