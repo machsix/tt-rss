@@ -677,8 +677,8 @@ class Article extends Handler_Protected {
 
 		while ($line = $sth->fetch()) {
 
-			if ($cache->exists(sha1($line["content_url"]))) {
-				$line["content_url"] = $cache->getUrl(sha1($line["content_url"]));
+			if ($cache->exists($cache->getCachePath($line["content_url"]))) {
+				$line["content_url"] = $cache->getUrl($cache->getCachePath($line["content_url"]));
 			}
 
 			array_push($rv, $line);
@@ -881,13 +881,13 @@ class Article extends Handler_Protected {
 				$article_stream = rewrite_relative_url($site_url, $article_stream);
 		}
 
-		$cache = new DiskCache("images");
+		$cache = new DiskCache("images", $site_url);
 
-		if ($article_image && $cache->exists(sha1($article_image)))
-			$article_image = $cache->getUrl(sha1($article_image));
+		if ($article_image && $cache->exists($cache->getCachePath($article_image)))
+			$article_image = $cache->getUrl($cache->getCachePath($article_image));
 
-		if ($article_stream && $cache->exists(sha1($article_stream)))
-			$article_stream = $cache->getUrl(sha1($article_stream));
+		if ($article_stream && $cache->exists($cache->getCachePath($article_stream)))
+			$article_stream = $cache->getUrl($cache->getCachePath($article_stream));
 
 		return [$article_image, $article_stream];
 	}

@@ -1181,7 +1181,7 @@ class RSSUtils {
 	}
 
 	static function cache_enclosures($enclosures, $site_url) {
-		$cache = new DiskCache("images");
+		$cache = new DiskCache("images", $site_url);
 
 		if ($cache->isWritable()) {
 			foreach ($enclosures as $enc) {
@@ -1189,7 +1189,7 @@ class RSSUtils {
 				if (preg_match("/(image|audio|video)/", $enc[1])) {
 					$src = rewrite_relative_url($site_url, $enc[0]);
 
-					$local_filename = sha1($src);
+					$local_filename = $cache->getCachePath($src);
 
 					Debug::log("cache_enclosures: downloading: $src to $local_filename", Debug::$LOG_VERBOSE);
 
@@ -1208,7 +1208,7 @@ class RSSUtils {
 	}
 
 	static function cache_media($html, $site_url) {
-		$cache = new DiskCache("images");
+		$cache = new DiskCache("images", $site_url);
 
 		if ($cache->isWritable()) {
 			$doc = new DOMDocument();
@@ -1221,7 +1221,7 @@ class RSSUtils {
 					if ($entry->hasAttribute('src') && strpos($entry->getAttribute('src'), "data:") !== 0) {
 						$src = rewrite_relative_url($site_url, $entry->getAttribute('src'));
 
-						$local_filename = sha1($src);
+						$local_filename = $cache->getCachePath($src);
 
 						Debug::log("cache_media: checking $src", Debug::$LOG_VERBOSE);
 
