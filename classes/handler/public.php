@@ -509,7 +509,7 @@ class Handler_Public extends Handler {
 		<!DOCTYPE html>
 		<html>
 		<head>
-			<title><?php echo __("Share with Tiny Tiny RSS") ?> ?></title>
+			<title><?php echo __("Share with Tiny Tiny RSS") ?></title>
 			<?php
 			echo stylesheet_tag("css/default.css");
 			echo javascript_tag("lib/prototype.js");
@@ -996,6 +996,7 @@ class Handler_Public extends Handler {
 
 						$tpl->setVariable('LOGIN', $login);
 						$tpl->setVariable('RESETPASS_LINK', $resetpass_link);
+						$tpl->setVariable('TTRSS_HOST', SELF_URL_PATH);
 
 						$tpl->addBlock('message');
 
