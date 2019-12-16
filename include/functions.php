@@ -68,6 +68,8 @@
 	// during a single update (i.e. within PHP process lifetime)
 	// this is used to not cause excessive load on the origin server on
 	// e.g. feed subscription when all articles are being processes
+	define_default('CURL_CHECK_SSL', true);
+	// whether to check ssl certificates when caching files
 
 	/* tunables end here */
 
@@ -231,6 +233,7 @@
 		$max_size = isset($options["max_size"]) ? $options["max_size"] : MAX_DOWNLOAD_FILE_SIZE; // in bytes
 		$http_accept = isset($options["http_accept"]) ? $options["http_accept"] : false;
 		$http_referrer = isset($options["http_referrer"]) ? $options["http_referrer"] : false;
+		$check_ssl = isset($options["check_ssl"]) ? $options["check_ssl"] : true;
 
 		$url = ltrim($url, ' ');
 		$url = str_replace(' ', '%20', $url);
@@ -307,6 +310,11 @@
 
 			if ($login && $pass)
 				curl_setopt($ch, CURLOPT_USERPWD, "$login:$pass");
+
+			if (!$check_ssl) {
+				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+			}
 
 			$ret = @curl_exec($ch);
 

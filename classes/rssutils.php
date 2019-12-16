@@ -1206,7 +1206,8 @@ class RSSUtils {
 
 						$file_content = fetch_file_contents(array("url" => $src,
 							"http_referrer" => $src,
-							"max_size" => MAX_CACHE_FILE_SIZE));
+							"max_size" => MAX_CACHE_FILE_SIZE,
+						    "check_ssl" => CURL_CHECK_SSL));
 
 						if ($file_content) {
 							$cache->put($local_filename, $file_content);
@@ -1247,7 +1248,8 @@ class RSSUtils {
 
 							$file_content = fetch_file_contents(array("url" => $src,
 								"http_referrer" => $src,
-								"max_size" => MAX_CACHE_FILE_SIZE));
+								"max_size" => MAX_CACHE_FILE_SIZE,
+							    "check_ssl" => CURL_CHECK_SSL));
 
 							if ($file_content) {
 								$cache->put($local_filename, $file_content);
