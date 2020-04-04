@@ -156,7 +156,8 @@
 	require_once 'version.php';
 	require_once 'controls.php';
 
-	define('SELF_USER_AGENT', 'Tiny Tiny RSS/' . VERSION . ' (http://tt-rss.org/)');
+	// define('SELF_USER_AGENT', 'Tiny Tiny RSS/' . VERSION . ' (http://tt-rss.org/)');
+	define('SELF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/74.0');
 	ini_set('user_agent', SELF_USER_AGENT);
 
 	$schema_version = false;
