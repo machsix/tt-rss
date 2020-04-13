@@ -55,6 +55,7 @@ require(["dojo/_base/kernel",
 	"fox/PrefFilterTree",
 	"fox/PrefLabelTree",
 	"fox/Toolbar",
+	"fox/form/ValidationTextArea",
 	"fox/form/Select",
 	"fox/form/ComboButton",
 	"fox/form/DropDownButton"], function (dojo, declare, ready, parser, AppBase) {
@@ -63,19 +64,21 @@ require(["dojo/_base/kernel",
 		try {
 			const _App = declare("fox.App", AppBase, {
 				constructor: function() {
-					parser.parse();
+					this.setupNightModeDetection(() => {
+						parser.parse();
 
-					this.setLoadingProgress(50);
+						this.setLoadingProgress(50);
 
-					const clientTzOffset = new Date().getTimezoneOffset() * 60;
-					const params = {op: "rpc", method: "sanityCheck", clientTzOffset: clientTzOffset};
+						const clientTzOffset = new Date().getTimezoneOffset() * 60;
+						const params = {op: "rpc", method: "sanityCheck", clientTzOffset: clientTzOffset};
 
-					xhrPost("backend.php", params, (transport) => {
-						try {
-							this.backendSanityCallback(transport);
-						} catch (e) {
-							this.Error.report(e);
-						}
+						xhrPost("backend.php", params, (transport) => {
+							try {
+								this.backendSanityCallback(transport);
+							} catch (e) {
+								this.Error.report(e);
+							}
+						});
 					});
 				},
 				initSecondStage: function() {
@@ -142,8 +145,6 @@ require(["dojo/_base/kernel",
 							case "help_dialog":
 								App.helpDialog("main");
 								return false;
-							case "toggle_night_mode":
-								App.toggleNightMode();
 							default:
 								console.log("unhandled action: " + action_name + "; keycode: " + event.which);
 						}
@@ -157,7 +158,10 @@ require(["dojo/_base/kernel",
 			App = new _App();
 
 		} catch (e) {
-			this.Error.report(e);
+			if (App && App.Error)
+				App.Error.report(e);
+			else
+				alert(e + "\n\n" + e.stack);
 		}
 	});
 });

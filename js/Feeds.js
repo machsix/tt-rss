@@ -58,7 +58,6 @@ define(["dojo/_base/declare"], function (declare) {
 				const error = elems[l].error;
 				const has_img = elems[l].has_img;
 				const updated = elems[l].updated;
-				const auxctr = parseInt(elems[l].auxcounter);
 
 				if (id == "global-unread") {
 					App.global_unread = ctr;
@@ -76,7 +75,8 @@ define(["dojo/_base/declare"], function (declare) {
 				}*/
 
 				this.setUnread(id, (kind == "cat"), ctr);
-				this.setValue(id, (kind == "cat"), 'auxcounter', auxctr);
+				this.setValue(id, (kind == "cat"), 'auxcounter', parseInt(elems[l].auxcounter));
+				this.setValue(id, (kind == "cat"), 'markedcounter', parseInt(elems[l].markedcounter));
 
 				if (kind != "cat") {
 					this.setValue(id, false, 'error', error);
@@ -93,7 +93,9 @@ define(["dojo/_base/declare"], function (declare) {
 				}
 			}
 
-			this.hideOrShowFeeds(App.getInitParam("hide_read_feeds") == 1);
+			Headlines.updateCurrentUnread();
+
+			this.hideOrShowFeeds(App.getInitParam("hide_read_feeds"));
 			this._counters_prev = elems;
 
 			PluginHost.run(PluginHost.HOOK_COUNTERS_PROCESSED);
@@ -119,6 +121,8 @@ define(["dojo/_base/declare"], function (declare) {
 			Element.visible("feeds-holder") ? splitter.show() : splitter.hide();
 
 			dijit.byId("main").resize();
+
+			Headlines.updateCurrentUnread();
 		},
 		cancelSearch: function() {
 			this._search_query = "";
@@ -147,7 +151,7 @@ define(["dojo/_base/declare"], function (declare) {
 				const treeModel = new fox.FeedStoreModel({
 					store: store,
 					query: {
-						"type": App.getInitParam('enable_feed_cats') == 1 ? "category" : "feed"
+						"type": App.getInitParam('enable_feed_cats') ? "category" : "feed"
 					},
 					rootId: "root",
 					rootLabel: "Feeds",
@@ -212,10 +216,13 @@ define(["dojo/_base/declare"], function (declare) {
 				this.open({feed: -3});
 			}
 
-			this.hideOrShowFeeds(App.getInitParam("hide_read_feeds") == 1);
+			this.hideOrShowFeeds(App.getInitParam("hide_read_feeds"));
 
 			if (App.getInitParam("is_default_pw")) {
 				console.warn("user password is at default value");
+
+				if (dijit.byId("defaultPasswordDlg"))
+					dijit.byId("defaultPasswordDlg").destroyRecursive();
 
 				const dialog = new dijit.Dialog({
 					title: __("Your password is at default value"),
@@ -237,7 +244,7 @@ define(["dojo/_base/declare"], function (declare) {
 			}
 
 			// bw_limit disables timeout() so we request initial counters separately
-			if (App.getInitParam("bw_limit") == "1") {
+			if (App.getInitParam("bw_limit")) {
 				this.requestCounters(true);
 			} else {
 				setTimeout(() => {
@@ -274,18 +281,21 @@ define(["dojo/_base/declare"], function (declare) {
 			if (tree) return tree.selectFeed(feed, is_cat);
 		},
 		toggleUnread: function() {
-			const hide = !(App.getInitParam("hide_read_feeds") == "1");
+			const hide = !App.getInitParam("hide_read_feeds");
 
 			xhrPost("backend.php", {op: "rpc", method: "setpref", key: "HIDE_READ_FEEDS", value: hide}, () => {
 				this.hideOrShowFeeds(hide);
 				App.setInitParam("hide_read_feeds", hide);
 			});
 		},
-		hideOrShowFeeds: function(hide) {
-			const tree = dijit.byId("feedTree");
+		hideOrShowFeeds: function (hide) {
+			/*const tree = dijit.byId("feedTree");
 
 			if (tree)
-				return tree.hideRead(hide, App.getInitParam("hide_read_shows_special"));
+				return tree.hideRead(hide, App.getInitParam("hide_read_shows_special"));*/
+
+			$$("body")[0].setAttribute("hide-read-feeds", !!hide);
+			$$("body")[0].setAttribute("hide-read-shows-special", !!App.getInitParam("hide_read_shows_special"));
 		},
 		open: function(params) {
 			const feed = params.feed;
@@ -385,7 +395,7 @@ define(["dojo/_base/declare"], function (declare) {
 			}
 		},
 		catchupFeed: function(feed, is_cat, mode) {
-			if (is_cat == undefined) is_cat = false;
+			is_cat = is_cat || false;
 
 			let str = false;
 
@@ -409,7 +419,7 @@ define(["dojo/_base/declare"], function (declare) {
 			str = str.replace("%s", fn)
 				.replace("%w", mark_what);
 
-			if (App.getInitParam("confirm_feed_catchup") == 1 && !confirm(str)) {
+			if (App.getInitParam("confirm_feed_catchup") && !confirm(str)) {
 				return;
 			}
 
@@ -424,7 +434,7 @@ define(["dojo/_base/declare"], function (declare) {
 			xhrPost("backend.php", catchup_query, (transport) => {
 				App.handleRpcJson(transport);
 
-				const show_next_feed = App.getInitParam("on_catchup_show_next_feed") == "1";
+				const show_next_feed = App.getInitParam("on_catchup_show_next_feed");
 
 				if (show_next_feed) {
 					const nuf = this.getNextUnread(feed, is_cat);

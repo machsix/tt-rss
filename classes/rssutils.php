@@ -1230,34 +1230,36 @@ class RSSUtils {
 			if ($doc->loadHTML($html)) {
 				$xpath = new DOMXPath($doc);
 
-				$entries = $xpath->query('(//img[@src])|(//video/source[@src])|(//audio/source[@src])');
+				$entries = $xpath->query('(//img[@src])|(//video/source[@src])|(//audio/source[@src])|(//video[@poster])|(//video[@src])');
 
 				foreach ($entries as $entry) {
-					if ($entry->hasAttribute('src') && strpos($entry->getAttribute('src'), "data:") !== 0) {
-						$src = rewrite_relative_url($site_url, $entry->getAttribute('src'));
+					foreach (array('src', 'poster') as $attr) {
+						if ($entry->hasAttribute($attr) && strpos($entry->getAttribute($attr), "data:") !== 0) {
+							$src = rewrite_relative_url($site_url, $entry->getAttribute($attr));
 
-						$local_filename = $cache->getCachePath($src);
+							$local_filename = $cache->getCachePath($src);
 
-						Debug::log("cache_media: checking $src", Debug::$LOG_VERBOSE);
+							Debug::log("cache_media: checking $src", Debug::$LOG_VERBOSE);
 
-						if (!$cache->exists($local_filename)) {
-							Debug::log("cache_media: downloading: $src to $local_filename", Debug::$LOG_VERBOSE);
+							if (!$cache->exists($local_filename)) {
+								Debug::log("cache_media: downloading: $src to $local_filename", Debug::$LOG_VERBOSE);
 
-							global $fetch_last_error_code;
-							global $fetch_last_error;
+								global $fetch_last_error_code;
+								global $fetch_last_error;
 
-							$file_content = fetch_file_contents(array("url" => $src,
-								"http_referrer" => $src,
-								"max_size" => MAX_CACHE_FILE_SIZE,
-							    "check_ssl" => CURL_CHECK_SSL));
+								$file_content = fetch_file_contents(array("url" => $src,
+									"http_referrer" => $src,
+									"max_size" => MAX_CACHE_FILE_SIZE,
+									"check_ssl" => CURL_CHECK_SSL));
 
-							if ($file_content) {
-								$cache->put($local_filename, $file_content);
-							} else {
-								Debug::log("cache_media: failed with $fetch_last_error_code: $fetch_last_error");
+								if ($file_content) {
+									$cache->put($local_filename, $file_content);
+								} else {
+									Debug::log("cache_media: failed with $fetch_last_error_code: $fetch_last_error");
+								}
+							} else if ($cache->isWritable($local_filename)) {
+								$cache->touch($local_filename);
 							}
-						} else if ($cache->isWritable($local_filename)) {
-							$cache->touch($local_filename);
 						}
 					}
 				}
@@ -1345,6 +1347,7 @@ class RSSUtils {
 			foreach ($filter["rules"] as $rule) {
 				$match = false;
 				$reg_exp = str_replace('/', '\/', $rule["reg_exp"]);
+				$reg_exp = str_replace("\n", "", $reg_exp); // reg_exp may be formatted with CRs now because of textarea, we need to strip those
 				$rule_inverse = $rule["inverse"];
 
 				if (!$reg_exp)
@@ -1471,26 +1474,12 @@ class RSSUtils {
 			mb_strtolower(strip_tags($title), 'utf-8'));
 	}
 
+	/* counter cache is no longer used, if called truncate leftover data */
 	static function cleanup_counters_cache() {
 		$pdo = Db::pdo();
 
-		$res = $pdo->query("DELETE FROM ttrss_counters_cache
-			WHERE feed_id > 0 AND
-			(SELECT COUNT(id) FROM ttrss_feeds WHERE
-				id = feed_id AND
-				ttrss_counters_cache.owner_uid = ttrss_feeds.owner_uid) = 0");
-
-		$frows = $res->rowCount();
-
-		$res = $pdo->query("DELETE FROM ttrss_cat_counters_cache
-			WHERE feed_id > 0 AND
-			(SELECT COUNT(id) FROM ttrss_feed_categories WHERE
-				id = feed_id AND
-				ttrss_cat_counters_cache.owner_uid = ttrss_feed_categories.owner_uid) = 0");
-
-		$crows = $res->rowCount();
-
-		Debug::log("Removed $frows (feeds) $crows (cats) orphaned counter cache entries.");
+		$pdo->query("DELETE FROM ttrss_counters_cache");
+		$pdo->query("DELETE FROM ttrss_cat_counters_cache");
 	}
 
 	static function housekeeping_user($owner_uid) {

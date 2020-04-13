@@ -40,7 +40,7 @@ class API extends Handler {
 	}
 
 	function getVersion() {
-		$rv = array("version" => VERSION);
+		$rv = array("version" => get_version());
 		$this->wrap(self::STATUS_OK, $rv);
 	}
 
@@ -299,16 +299,6 @@ class API extends Handler {
 			$sth->execute(array_merge($article_ids, [$_SESSION['uid']]));
 
 			$num_updated = $sth->rowCount();
-
-			if ($num_updated > 0 && $field == "unread") {
-				$sth = $this->pdo->prepare("SELECT DISTINCT feed_id FROM ttrss_user_entries
-					WHERE ref_id IN ($article_qmarks)");
-				$sth->execute($article_ids);
-
-				while ($line = $sth->fetch()) {
-					CCache::update($line["feed_id"], $_SESSION["uid"]);
-				}
-			}
 
 			$this->wrap(self::STATUS_OK, array("status" => "OK",
 				"updated" => $num_updated));

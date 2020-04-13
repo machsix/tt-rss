@@ -27,6 +27,9 @@
 		error_reporting(E_ALL & ~E_NOTICE);
 	}
 
+	ini_set('display_errors', 0);
+	ini_set('display_startup_errors', 0);
+
 	require_once 'config.php';
 
 	/**
@@ -63,13 +66,14 @@
 	define_default('MAX_CONDITIONAL_INTERVAL', 3600*12);
 	// max interval between forced unconditional updates for servers
 	// not complying with http if-modified-since (seconds)
-	define_default('MAX_FETCH_REQUESTS_PER_HOST', 25);
+	// define_default('MAX_FETCH_REQUESTS_PER_HOST', 25);
 	// a maximum amount of allowed HTTP requests per destination host
 	// during a single update (i.e. within PHP process lifetime)
 	// this is used to not cause excessive load on the origin server on
 	// e.g. feed subscription when all articles are being processes
 	define_default('CURL_CHECK_SSL', true);
 	// whether to check ssl certificates when caching files
+	// (not implemented)
 
 	/* tunables end here */
 
@@ -153,10 +157,9 @@
 	}
 
 	require_once 'db-prefs.php';
-	require_once 'version.php';
 	require_once 'controls.php';
 
-	// define('SELF_USER_AGENT', 'Tiny Tiny RSS/' . VERSION . ' (http://tt-rss.org/)');
+	// define('SELF_USER_AGENT', 'Tiny Tiny RSS/' . get_version() . ' (http://tt-rss.org/)');
 	define('SELF_USER_AGENT', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:74.0) Gecko/20100101 Firefox/74.0');
 	ini_set('user_agent', SELF_USER_AGENT);
 
@@ -245,10 +248,10 @@
 		$url_host = parse_url($url, PHP_URL_HOST);
 		$fetch_domain_hits[$url_host] += 1;
 
-		if ($fetch_domain_hits[$url_host] > MAX_FETCH_REQUESTS_PER_HOST) {
-			user_error("Exceeded fetch request quota for $url_host: " . $fetch_domain_hits[$url_host], E_USER_WARNING);
+		/*if ($fetch_domain_hits[$url_host] > max_fetch_requests_per_host) {
+			user_error("exceeded fetch request quota for $url_host: " . $fetch_domain_hits[$url_host], e_user_warning);
 			#return false;
-		}
+		}*/
 
 		if (!defined('NO_CURL') && function_exists('curl_init') && !ini_get("open_basedir")) {
 
@@ -737,24 +740,7 @@
 			if ($_SESSION["uid"]) {
 				startup_gettext();
 				load_user_plugins($_SESSION["uid"]);
-
-				/* cleanup ccache */
-
-				$sth = $pdo->prepare("DELETE FROM ttrss_counters_cache WHERE owner_uid = ?
-					AND
-						(SELECT COUNT(id) FROM ttrss_feeds WHERE
-							ttrss_feeds.id = feed_id) = 0");
-
-				$sth->execute([$_SESSION['uid']]);
-
-				$sth = $pdo->prepare("DELETE FROM ttrss_cat_counters_cache WHERE owner_uid = ?
-					AND
-						(SELECT COUNT(id) FROM ttrss_feed_categories WHERE
-							ttrss_feed_categories.id = feed_id) = 0");
-
-				$sth->execute([$_SESSION['uid']]);
 			}
-
 		}
 	}
 
@@ -1050,12 +1036,14 @@
 			__("Navigation") => array(
 				"next_feed" => __("Open next feed"),
 				"prev_feed" => __("Open previous feed"),
-				"next_article" => __("Open next article (scroll long articles)"),
-				"prev_article" => __("Open previous article (scroll long articles)"),
+				"next_article_or_scroll" => __("Open next article (in combined mode, scroll down)"),
+				"prev_article_or_scroll" => __("Open previous article (in combined mode, scroll up)"),
+				"next_article_page" => __("Scroll article by one page down"),
+				"prev_article_page" => __("Scroll article by one page up"),
 				"next_article_noscroll" => __("Open next article"),
 				"prev_article_noscroll" => __("Open previous article"),
-				"next_article_noexpand" => __("Move to next article (don't expand or mark read)"),
-				"prev_article_noexpand" => __("Move to previous article (don't expand or mark read)"),
+				"next_article_noexpand" => __("Move to next article (don't expand)"),
+				"prev_article_noexpand" => __("Move to previous article (don't expand)"),
 				"search_dialog" => __("Show search dialog")),
 			__("Article") => array(
 				"toggle_mark" => __("Toggle starred"),
@@ -1067,12 +1055,14 @@
 				"catchup_above" => __("Mark above as read"),
 				"article_scroll_down" => __("Scroll down"),
 				"article_scroll_up" => __("Scroll up"),
+				"article_page_down" => __("Scroll down page"),
+				"article_page_up" => __("Scroll up page"),
 				"select_article_cursor" => __("Select article under cursor"),
 				"email_article" => __("Email article"),
 				"close_article" => __("Close/collapse article"),
 				"toggle_expand" => __("Toggle article expansion (combined mode)"),
 				"toggle_widescreen" => __("Toggle widescreen mode"),
-				"toggle_embed_original" => __("Toggle embed original")),
+				"toggle_full_text" => __("Toggle full article text via Readability")),
 			__("Article selection") => array(
 				"select_all" => __("Select all articles"),
 				"select_unread" => __("Select unread"),
@@ -1106,7 +1096,6 @@
 				"create_label" => __("Create label"),
 				"create_filter" => __("Create filter"),
 				"collapse_sidebar" => __("Un/collapse sidebar"),
-				"toggle_night_mode" => __("Toggle night mode"),
 				"help_dialog" => __("Show help dialog"))
 		);
 
@@ -1121,18 +1110,18 @@
 		$hotkeys = array(
 			"k" => "next_feed",
 			"j" => "prev_feed",
-			"n" => "next_article",
-			"p" => "prev_article",
-			"(33)|PageUp" => "prev_article_page",
-			"(34)|PageDown" => "next_article_page",
-			"(38)|Up" => "prev_article",
-			"(40)|Down" => "next_article",
+			"n" => "next_article_noscroll",
+			"p" => "prev_article_noscroll",
+			//"(33)|PageUp" => "prev_article_page",
+			//"(34)|PageDown" => "next_article_page",
+			"*(33)|Shift+PgUp" => "article_page_up",
+			"*(34)|Shift+PgDn" => "article_page_down",
+			"(38)|Up" => "prev_article_or_scroll",
+			"(40)|Down" => "next_article_or_scroll",
 			"*(38)|Shift+Up" => "article_scroll_up",
 			"*(40)|Shift+Down" => "article_scroll_down",
 			"^(38)|Ctrl+Up" => "prev_article_noscroll",
 			"^(40)|Ctrl+Down" => "next_article_noscroll",
-			"^(33)|Shift+PageUp" => "article_page_up",
-			"^(34)|Shift+PageDown" => "article_page_down",
 			"/" => "search_dialog",
 			"s" => "toggle_mark",
 			"S" => "toggle_publ",
@@ -1144,7 +1133,7 @@
 			"N" => "article_scroll_down",
 			"P" => "article_scroll_up",
 			"a W" => "toggle_widescreen",
-			"a e" => "toggle_embed_original",
+			"a e" => "toggle_full_text",
 			"e" => "email_article",
 			"a q" => "close_article",
 			"a a" => "select_all",
@@ -1177,7 +1166,6 @@
 			"c l" => "create_label",
 			"c f" => "create_filter",
 			"c s" => "collapse_sidebar",
-			"a N" => "toggle_night_mode",
 			"?" => "help_dialog",
 		);
 
@@ -1303,6 +1291,7 @@
 
 			if ($entry->nodeName == 'img') {
 				$entry->setAttribute('referrerpolicy', 'no-referrer');
+				$entry->setAttribute('loading', 'lazy');
 
 				$entry->removeAttribute('width');
 				$entry->removeAttribute('height');
@@ -1773,9 +1762,6 @@
 	}
 
 	function get_theme_path($theme) {
-		if ($theme == "default.php")
-			return "css/default.css";
-
 		$check = "themes/$theme";
 		if (file_exists($check)) return $check;
 
@@ -1888,4 +1874,65 @@
 		}
 
 		return $ts;
+	}
+
+	/* for package maintainers who don't use git: if version_static.txt exists in tt-rss root
+		directory, its contents are displayed instead of git commit-based version, this could be generated
+		based on source git tree commit used when creating the package */
+
+	function get_version(&$git_commit = false, &$git_timestamp = false, &$last_error = false) {
+		global $ttrss_version;
+
+		if (is_array($ttrss_version) && isset($ttrss_version['version'])) {
+			$git_commit = $ttrss_version['commit'];
+			$git_timestamp = $ttrss_version['timestamp'];
+			$last_error = $ttrss_version['last_error'];
+
+			return $ttrss_version['version'];
+		} else {
+			$ttrss_version = [];
+		}
+
+		$ttrss_version['version'] = "UNKNOWN (Unsupported)";
+
+		date_default_timezone_set('UTC');
+		$root_dir = dirname(dirname(__FILE__));
+
+		if (PHP_OS === "Darwin") {
+			$ttrss_version['version'] = "UNKNOWN (Unsupported, Darwin)";
+		} else if (file_exists("$root_dir/version_static.txt")) {
+			$ttrss_version['version'] = trim(file_get_contents("$root_dir/version_static.txt")) . " (Unsupported)";
+		} else if (is_dir("$root_dir/.git")) {
+			$rc = 0;
+			$output = [];
+
+			$cwd = getcwd();
+
+			chdir($root_dir);
+			exec('git --no-pager log --pretty="version: %ct %h" -n1 HEAD 2>&1', $output, $rc);
+			chdir($cwd);
+
+			if (is_array($output) && count($output) > 0) {
+				list ($test, $timestamp, $commit) = explode(" ", $output[0], 3);
+
+				if ($test == "version:") {
+					$git_commit = $commit;
+					$git_timestamp = $timestamp;
+
+					$ttrss_version['version'] = strftime("%y.%m", $timestamp) . "-$commit";
+					$ttrss_version['commit'] = $commit;
+					$ttrss_version['timestamp'] = $timestamp;
+				}
+			}
+
+			if (!isset($ttrss_version['commit'])) {
+				$last_error = "Unable to determine version (using $root_dir): RC=$rc; OUTPUT=" . implode("\n", $output);
+
+				$ttrss_version["last_error"] = $last_error;
+
+				user_error($last_error, E_USER_WARNING);
+			}
+		}
+
+		return $ttrss_version['version'];
 	}
