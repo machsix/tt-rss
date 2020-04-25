@@ -19,3 +19,4 @@ web.config
 /.tags*
 /.gutentags
 update.log
+plugins.local/fever/test.py
