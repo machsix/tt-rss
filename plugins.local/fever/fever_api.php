@@ -576,7 +576,8 @@ class FeverAPI extends Handler {
         $sth = $this->pdo->prepare("SELECT ref_id, feed_id, title, link, content, id, marked, unread, author,
                                    " . SUBSTRING_FOR_DATE . "(updated,1,16) as updated,
                                    (SELECT site_url FROM ttrss_feeds WHERE id = feed_id) AS site_url,
-                                   (SELECT hide_images FROM ttrss_feeds WHERE id = feed_id) AS hide_images
+								   (SELECT hide_images FROM ttrss_feeds WHERE id = feed_id) AS hide_images,
+								   (SELECT cache_images FROM ttrss_feeds WHERE id = feed_id) AS cache_images
                                    FROM ttrss_entries, ttrss_user_entries
                                    WHERE " . $where);
 				try {
@@ -591,7 +592,7 @@ class FeverAPI extends Handler {
                                 $line["content"],
                                 API::param_to_bool($line['hide_images']),
                                 false, $line["site_url"], false, $line["id"]);
-            $line_content = DiskCache::rewriteUrls($line_content, $line["site_url"]);
+            $line_content = DiskCache::rewriteUrls($line_content, $line["site_url"], $line["cache_images"]);
             $line_content = str_replace('&amp;', '&', $line_content);
             $bad = array('<?xml encoding="UTF-8">', '<body>','</body>','<html>','</html>');
             $line_content = str_ireplace($bad, "", $line_content);

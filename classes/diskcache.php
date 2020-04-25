@@ -142,7 +142,7 @@ class DiskCache
 	// check for locally cached (media) URLs and rewrite to local versions
 	// this is called separately after sanitize() and plugin render article hooks to allow
 	// plugins work on original source URLs used before caching
-	static public function rewriteUrls($str, $siteUrl = "")
+	static public function rewriteUrls($str, $siteUrl = "", $cacheImages = false)
 	{
 		$res = trim($str);
 		if (!$res) return '';
@@ -164,9 +164,9 @@ class DiskCache
 						$src = $entry->getAttribute($attr);
 						$cached_filename = $cache->getCachePath($src);
 
-						if ($cache->exists($cached_filename)) {
+						if ($cache->exists($cached_filename) || $cacheImages) {
 
-							$src = $cache->getUrl($cache->getCachePath($src));
+							$src = $cache->getUrl($cached_filename);
 
 							$entry->setAttribute($attr, $src);
 							$entry->removeAttribute("srcset");
