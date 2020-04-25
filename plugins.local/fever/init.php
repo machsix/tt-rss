@@ -10,10 +10,12 @@ class Fever extends Plugin {
 
     function init($host) {
         $this->host = $host;
-        
+
         $host->add_hook($host::HOOK_PREFS_TAB, $this);
+        $host->add_hook($host::HOOK_PREFS_EDIT_FEED, $this);
+    	$host->add_hook($host::HOOK_PREFS_SAVE_FEED, $this);
     }
-    
+
     /* plugins/main/init.php hook_prefs_tab */
 
     function hook_prefs_tab($args) {
@@ -26,7 +28,7 @@ class Fever extends Plugin {
         print "<p>" . __("Since the Fever API uses a different authentication mechanism to Tiny Tiny RSS, you must set a separate password to login. This password may be the same as your Tiny Tiny RSS password.") . "</p>";
 
         print "<p>" . __("Set a password to login with Fever:") . "</p>";
-        
+
         print "<p><b>" . __("WARNING: The Fever API uses an UNSECURE unsalted MD5 hash. Consider the use of a disposable application-specific password and use HTTPS.") . "</b></p>";
 
         print "<form dojoType=\"dijit.form.Form\">";
@@ -43,7 +45,7 @@ class Fever extends Plugin {
                 //this.reset();
             }
             </script>";
-            
+
         print_hidden("op", "pluginhandler");
         print_hidden("method", "save");
         print_hidden("plugin", "fever");
@@ -74,7 +76,47 @@ class Fever extends Plugin {
             }
         }
     }
-    
+
+	function hook_prefs_edit_feed($feed_id) {
+		print "<header>".__("Fever API")."</header>";
+		print "<section>";
+
+		$enabled_feeds = $this->host->get($this, "enabled_feeds");
+		if (!is_array($enabled_feeds)) $enabled_feeds = array();
+
+		$key = array_search($feed_id, $enabled_feeds);
+		$checked = $key !== FALSE ? "checked" : "";
+
+		print "<fieldset>";
+
+		print "<label class='checkbox'><input dojoType='dijit.form.CheckBox' type='checkbox' id='fever_cacheImages_enabled'
+			name='fever_cacheImages_enabled' $checked>&nbsp;".__('Use cached images mandatorily')."</label>";
+
+		print "</fieldset>";
+
+		print "</section>";
+    }
+
+    function hook_prefs_save_feed($feed_id) {
+		$enabled_feeds = $this->host->get($this, "enabled_feeds");
+		if (!is_array($enabled_feeds)) $enabled_feeds = array();
+
+		$enable = checkbox_to_sql_bool($_POST["fever_cacheImages_enabled"]);
+		$key = array_search($feed_id, $enabled_feeds);
+
+		if ($enable) {
+			if ($key === FALSE) {
+				array_push($enabled_feeds, $feed_id);
+			}
+		} else {
+			if ($key !== FALSE) {
+				unset($enabled_feeds[$key]);
+			}
+		}
+
+		$this->host->set($this, "enabled_feeds", $enabled_feeds);
+    }
+
     function api_version() {
         return 2;
     }

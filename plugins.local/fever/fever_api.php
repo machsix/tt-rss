@@ -570,7 +570,20 @@ class FeverAPI extends Handler {
 
         $where .= " LIMIT " . $item_limit;
 
-        /* classes/api.php getArticle */
+		/* classes/api.php getArticle */
+		// get which feed has forced cache
+		$sth = $this->pdo->prepare("SELECT content FROM ttrss_plugin_storage
+                                        WHERE name = ?");
+		$sth->execute([self::PLUGIN_NAME]);
+	    $enabled_feeds = array();
+		while ($line = $sth->fetch())
+		{
+			$storage = unserialize($line['content']);
+			if (array_key_exists ('enabled_feeds',$storage)) {
+				$enabled_feeds = $storage['enabled_feeds'];
+			}
+		}
+
 
         // id, feed_id, title, author, html, url, is_saved, is_read, created_on_time
         $sth = $this->pdo->prepare("SELECT ref_id, feed_id, title, link, content, id, marked, unread, author,
@@ -591,8 +604,12 @@ class FeverAPI extends Handler {
             $line_content = sanitize(
                                 $line["content"],
                                 API::param_to_bool($line['hide_images']),
-                                false, $line["site_url"], false, $line["id"]);
-            $line_content = DiskCache::rewriteUrls($line_content, $line["site_url"], $line["cache_images"]);
+								false, $line["site_url"], false, $line["id"]);
+            if ($line["cache_images"] && in_array($line["feed_id"], $enabled_feeds)) {
+				$line_content = DiskCache::rewriteUrls($line_content, $line["site_url"], true);
+			} else {
+				$line_content = DiskCache::rewriteUrls($line_content, $line["site_url"]);
+			}
             $line_content = str_replace('&amp;', '&', $line_content);
             $bad = array('<?xml encoding="UTF-8">', '<body>','</body>','<html>','</html>');
             $line_content = str_ireplace($bad, "", $line_content);
