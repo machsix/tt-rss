@@ -529,21 +529,7 @@ class Feeds extends Handler_Protected {
 
 		$reply['headlines'] = [];
 
-		$override_order = false;
-		$skip_first_id_check = false;
-
-		switch ($order_by) {
-		case "title":
-			$override_order = "ttrss_entries.title, date_entered, updated";
-			break;
-		case "date_reverse":
-			$override_order = "score DESC, date_entered, updated";
-			$skip_first_id_check = true;
-			break;
-		case "feed_dates":
-			$override_order = "updated DESC";
-			break;
-		}
+		list($override_order, $skip_first_id_check) = Feeds::order_to_override_query($order_by);
 
 		$ret = $this->format_headlines_list($feed, $method,
 			$view_mode, $limit, $cat_view, $offset,
@@ -701,12 +687,12 @@ class Feeds extends Handler_Protected {
 		print "<section>";
 		print "<label>
 			<label class='checkbox'><input type='checkbox' name='need_auth' dojoType='dijit.form.CheckBox' id='feedDlg_loginCheck'
-					onclick='displayIfChecked(this, \"feedDlg_loginContainer\")'>
+					onclick='App.displayIfChecked(this, \"feedDlg_loginContainer\")'>
 				".__('This feed requires authentication.')."</label>";
 		print "</section>";
 
 		print "<footer>";
-		print "<button dojoType='dijit.form.Button' class='alt-primary' type='submit' 
+		print "<button dojoType='dijit.form.Button' class='alt-primary' type='submit'
 				onclick=\"return dijit.byId('feedAddDlg').execute()\">".__('Subscribe')."</button>";
 
 		print "<button dojoType='dijit.form.Button' onclick=\"return dijit.byId('feedAddDlg').hide()\">".__('Cancel')."</button>";
@@ -1337,7 +1323,7 @@ class Feeds extends Handler_Protected {
 			return 0;
 		} else if ($cat == -2) {
 
-			$sth = $pdo->prepare("SELECT COUNT(DISTINCT article_id) AS unread 
+			$sth = $pdo->prepare("SELECT COUNT(DISTINCT article_id) AS unread
 				FROM ttrss_user_entries ue, ttrss_user_labels2 l
 				WHERE article_id = ref_id AND unread IS true AND ue.owner_uid = :uid");
 			$sth->execute(["uid" => $owner_uid]);
@@ -1373,8 +1359,8 @@ class Feeds extends Handler_Protected {
 
 		$pdo = Db::pdo();
 
-		$sth = $pdo->prepare("SELECT SUM(CASE WHEN unread THEN 1 ELSE 0 END) AS count 
-			FROM ttrss_user_entries ue 
+		$sth = $pdo->prepare("SELECT SUM(CASE WHEN unread THEN 1 ELSE 0 END) AS count
+			FROM ttrss_user_entries ue
 			WHERE ue.owner_uid = ?");
 
 		$sth->execute([$user_id]);
@@ -1468,7 +1454,7 @@ class Feeds extends Handler_Protected {
 			}
 
 			if (DB_TYPE == "pgsql") {
-				$test_sth = $pdo->prepare("select $search_query_part 
+				$test_sth = $pdo->prepare("select $search_query_part
 					FROM ttrss_entries, ttrss_user_entries WHERE id = ref_id limit 1");
 
 				try {
@@ -2272,9 +2258,9 @@ class Feeds extends Handler_Protected {
 						$label_id = Labels::find_id($commandpair[1], $_SESSION["uid"]);
 
 						if ($label_id) {
-							array_push($query_keywords, "($not 
+							array_push($query_keywords, "($not
 								(ttrss_entries.id IN (
-									SELECT article_id FROM ttrss_user_labels2 WHERE 
+									SELECT article_id FROM ttrss_user_labels2 WHERE
 										label_id = ".$pdo->quote($label_id).")))");
 						} else {
 							array_push($query_keywords, "(false)");
@@ -2347,6 +2333,33 @@ class Feeds extends Handler_Protected {
 			$search_query_part = "false";
 
 		return array($search_query_part, $search_words);
+	}
+
+	static function order_to_override_query($order) {
+		$query = "";
+		$skip_first_id = false;
+
+		switch ($order) {
+			case "title":
+				$query = "ttrss_entries.title, date_entered, updated";
+				break;
+			case "date_reverse":
+				$query = "updated";
+				$skip_first_id = true;
+				break;
+			case "feed_dates":
+				$query = "updated DESC";
+				break;
+		}
+
+		if (!$query) {
+			foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_HEADLINES_CUSTOM_SORT_OVERRIDE) as $p) {
+				list ($query, $skip_first_id) = $p->hook_headlines_custom_sort_override($order);
+
+				if ($query)	break;
+			}
+		}
+		return [$query, $skip_first_id];
 	}
 }
 

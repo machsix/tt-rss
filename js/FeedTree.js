@@ -1,11 +1,46 @@
-/* global dijit */
-define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"], function (declare, domConstruct) {
+/* eslint-disable prefer-rest-params */
+/* global __, dojo, dijit, define, App, Feeds, CommonDialogs */
+
+define(["dojo/_base/declare", "dojo/dom-construct", "dojo/_base/array", "dojo/cookie", "dijit/Tree", "dijit/Menu"], function (declare, domConstruct, array, cookie) {
 
 	return declare("fox.FeedTree", dijit.Tree, {
-		_onContainerKeydown: function(/* Event */ e) {
+		// save state in localStorage instead of cookies
+		// reference: https://stackoverflow.com/a/27968996
+		_saveExpandedNodes: function(){
+			if(this.persist && this.cookieName){
+				var ary = [];
+				for(var id in this._openedNodes){
+					ary.push(id);
+				}
+				// Was:
+				// cookie(this.cookieName, ary.join(","), {expires: 365});
+				localStorage.setItem(this.cookieName, ary.join(","));
+			}
+		},
+		_initState: function(){
+			// summary:
+			//    Load in which nodes should be opened automatically
+			this._openedNodes = {};
+			if(this.persist && this.cookieName){
+				// Was:
+				// var oreo = cookie(this.cookieName);
+				var oreo = localStorage.getItem(this.cookieName);
+				// migrate old data if nothing in localStorage
+				if(oreo == null || oreo === '') {
+					oreo = cookie(this.cookieName);
+					cookie(this.cookieName, null, { expires: -1 });
+				}
+				if(oreo){
+					array.forEach(oreo.split(','), function(item){
+						this._openedNodes[item] = true;
+					}, this);
+				}
+			}
+		},
+		_onContainerKeydown: function(/* Event */ /* e */) {
 			return; // Stop dijit.Tree from interpreting keystrokes
 		},
-		_onContainerKeypress: function(/* Event */ e) {
+		_onContainerKeypress: function(/* Event */ /* e */) {
 			return; // Stop dijit.Tree from interpreting keystrokes
 		},
 		_createTreeNode: function(args) {
@@ -33,7 +68,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			const id = args.item.id[0];
 			const bare_id = parseInt(id.substr(id.indexOf(':')+1));
 
-			if (bare_id < LABEL_BASE_INDEX) {
+			if (bare_id < App.LABEL_BASE_INDEX) {
 				const label = dojo.create('i', { className: "material-icons icon icon-label", innerHTML: "label" });
 
 				//const fg_color = args.item.fg_color[0];
@@ -47,7 +82,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			}
 
 			if (id.match("FEED:")) {
-				let menu = new dijit.Menu();
+				const menu = new dijit.Menu();
 				menu.row_id = bare_id;
 
 				menu.addChild(new dijit.MenuItem({
@@ -76,7 +111,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			}
 
 			if (id.match("CAT:") && bare_id >= 0) {
-				let menu = new dijit.Menu();
+				const menu = new dijit.Menu();
 				menu.row_id = bare_id;
 
 				menu.addChild(new dijit.MenuItem({
@@ -101,7 +136,7 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			}
 
 			if (id.match("CAT:") && bare_id == -1) {
-				let menu = new dijit.Menu();
+				const menu = new dijit.Menu();
 				menu.row_id = bare_id;
 
 				menu.addChild(new dijit.MenuItem({
@@ -145,15 +180,16 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			}
 		},
 		getTooltip: function (item) {
-			return [item.updated, item.error].filter(x => x && x != "").join(" - ");
+			return [item.updated, item.error].filter((x) => x && x != "").join(" - ");
 		},
 		getIconClass: function (item, opened) {
+			// eslint-disable-next-line no-nested-ternary
 			return (!item || this.model.mayHaveChildren(item)) ? (opened ? "dijitFolderOpened" : "dijitFolderClosed") : "feed-icon";
 		},
-		getLabelClass: function (item, opened) {
+		getLabelClass: function (item/* , opened */) {
 			return (item.unread <= 0) ? "dijitTreeLabel" : "dijitTreeLabel Unread";
 		},
-		getRowClass: function (item, opened) {
+		getRowClass: function (item/*, opened */) {
 			let rc = "dijitTreeRow";
 
 			const is_cat = String(item.id).indexOf('CAT:') != -1;
@@ -163,9 +199,9 @@ define(["dojo/_base/declare", "dojo/dom-construct", "dijit/Tree", "dijit/Menu"],
 			if (item.auxcounter > 0) rc += " Has_Aux";
 			if (item.markedcounter > 0) rc += " Has_Marked";
 			if (item.updates_disabled > 0) rc += " UpdatesDisabled";
-			if (item.bare_id >= LABEL_BASE_INDEX && item.bare_id < 0 && !is_cat || item.bare_id == 0 && !is_cat) rc += " Special";
+			if (item.bare_id >= App.LABEL_BASE_INDEX && item.bare_id < 0 && !is_cat || item.bare_id == 0 && !is_cat) rc += " Special";
 			if (item.bare_id == -1 && is_cat) rc += " AlwaysVisible";
-			if (item.bare_id < LABEL_BASE_INDEX) rc += " Label";
+			if (item.bare_id < App.LABEL_BASE_INDEX) rc += " Label";
 
 			return rc;
 		},

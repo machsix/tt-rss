@@ -1038,13 +1038,14 @@
 				"prev_feed" => __("Open previous feed"),
 				"next_article_or_scroll" => __("Open next article (in combined mode, scroll down)"),
 				"prev_article_or_scroll" => __("Open previous article (in combined mode, scroll up)"),
-				"next_article_page" => __("Scroll article by one page down"),
-				"prev_article_page" => __("Scroll article by one page up"),
+				"next_headlines_page" => __("Scroll headlines by one page down"),
+				"prev_headlines_page" => __("Scroll headlines by one page up"),
 				"next_article_noscroll" => __("Open next article"),
 				"prev_article_noscroll" => __("Open previous article"),
 				"next_article_noexpand" => __("Move to next article (don't expand)"),
 				"prev_article_noexpand" => __("Move to previous article (don't expand)"),
-				"search_dialog" => __("Show search dialog")),
+				"search_dialog" => __("Show search dialog"),
+				"cancel_search" => __("Cancel active search")),
 			__("Article") => array(
 				"toggle_mark" => __("Toggle starred"),
 				"toggle_publ" => __("Toggle published"),
@@ -1106,23 +1107,26 @@
 		return $hotkeys;
 	}
 
+	// {3} - 3 panel mode only
+	// {C} - combined mode only
 	function get_hotkeys_map() {
 		$hotkeys = array(
 			"k" => "next_feed",
 			"j" => "prev_feed",
 			"n" => "next_article_noscroll",
 			"p" => "prev_article_noscroll",
-			//"(33)|PageUp" => "prev_article_page",
-			//"(34)|PageDown" => "next_article_page",
+			"N" => "article_page_down",
+			"P" => "article_page_up",
 			"*(33)|Shift+PgUp" => "article_page_up",
 			"*(34)|Shift+PgDn" => "article_page_down",
-			"(38)|Up" => "prev_article_or_scroll",
-			"(40)|Down" => "next_article_or_scroll",
+			"{3}(38)|Up" => "prev_article_or_scroll",
+			"{3}(40)|Down" => "next_article_or_scroll",
 			"*(38)|Shift+Up" => "article_scroll_up",
 			"*(40)|Shift+Down" => "article_scroll_down",
 			"^(38)|Ctrl+Up" => "prev_article_noscroll",
 			"^(40)|Ctrl+Down" => "next_article_noscroll",
 			"/" => "search_dialog",
+			"\\" => "cancel_search",
 			"s" => "toggle_mark",
 			"S" => "toggle_publ",
 			"u" => "toggle_unread",
@@ -1130,8 +1134,6 @@
 			"o" => "open_in_new_window",
 			"c p" => "catchup_below",
 			"c n" => "catchup_above",
-			"N" => "article_scroll_down",
-			"P" => "article_scroll_up",
 			"a W" => "toggle_widescreen",
 			"a e" => "toggle_full_text",
 			"e" => "email_article",
@@ -1273,7 +1275,7 @@
 
 		$rewrite_base_url = $site_url ? $site_url : get_self_url_prefix();
 
-		$entries = $xpath->query('(//a[@href]|//img[@src]|//video/source[@src]|//audio/source[@src]|//picture/source[@src])');
+		$entries = $xpath->query('(//a[@href]|//img[@src]|//source[@srcset|@src])');
 
 		foreach ($entries as $entry) {
 
@@ -1282,34 +1284,27 @@
 					rewrite_relative_url($rewrite_base_url, $entry->getAttribute('href')));
 
 				$entry->setAttribute('rel', 'noopener noreferrer');
+				$entry->setAttribute("target", "_blank");
 			}
 
 			if ($entry->hasAttribute('src')) {
-				$src = rewrite_relative_url($rewrite_base_url, $entry->getAttribute('src'));
-				$entry->setAttribute('src', $src);
+				$entry->setAttribute('src',
+					rewrite_relative_url($rewrite_base_url, $entry->getAttribute('src')));
 			}
 
 			if ($entry->nodeName == 'img') {
 				$entry->setAttribute('referrerpolicy', 'no-referrer');
 				$entry->setAttribute('loading', 'lazy');
+			}
 
-				$entry->removeAttribute('width');
-				$entry->removeAttribute('height');
+			if ($entry->hasAttribute('srcset')) {
+				$matches = RSSUtils::decode_srcset($entry->getAttribute('srcset'));
 
-				if ($entry->hasAttribute('src')) {
-					$is_https_url = parse_url($entry->getAttribute('src'), PHP_URL_SCHEME) === 'https';
-
-					if (is_prefix_https() && !$is_https_url) {
-
-						if ($entry->hasAttribute('srcset')) {
-							$entry->removeAttribute('srcset');
-						}
-
-						if ($entry->hasAttribute('sizes')) {
-							$entry->removeAttribute('sizes');
-						}
-					}
+				for ($i = 0; $i < count($matches); $i++) {
+					$matches[$i]["url"] = rewrite_relative_url($rewrite_base_url, $matches[$i]["url"]);
 				}
+
+				$entry->setAttribute("srcset", RSSUtils::encode_srcset($matches));
 			}
 
 			if ($entry->hasAttribute('src') &&
@@ -1332,16 +1327,9 @@
 						$entry->parentNode->parentNode->replaceChild($p, $entry->parentNode);
 
 				} else if ($entry->nodeName == 'img') {
-
 					if ($entry->parentNode)
 						$entry->parentNode->replaceChild($p, $entry);
-
 				}
-			}
-
-			if (strtolower($entry->nodeName) == "a") {
-				$entry->setAttribute("target", "_blank");
-				$entry->setAttribute("rel", "noopener noreferrer");
 			}
 		}
 
@@ -1372,7 +1360,7 @@
 
 		if ($_SESSION['hasSandbox']) $allowed_elements[] = 'iframe';
 
-		$disallowed_attributes = array('id', 'style', 'class');
+		$disallowed_attributes = array('id', 'style', 'class', 'width', 'height', 'allow');
 
 		foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_SANITIZE) as $plugin) {
 			$retval = $plugin->hook_sanitize($doc, $site_url, $allowed_elements, $disallowed_attributes, $article_id);
@@ -1388,7 +1376,15 @@
 		$doc->removeChild($doc->firstChild); //remove doctype
 		$doc = strip_harmful_tags($doc, $allowed_elements, $disallowed_attributes);
 
-		if ($highlight_words) {
+		$entries = $xpath->query('//iframe');
+		foreach ($entries as $entry) {
+			$div = $doc->createElement('div');
+			$div->setAttribute('class', 'embed-responsive');
+			$entry->parentNode->replaceChild($div, $entry);
+			$div->appendChild($entry);
+		}
+
+		if ($highlight_words && is_array($highlight_words)) {
 			foreach ($highlight_words as $word) {
 
 				// http://stackoverflow.com/questions/4081372/highlight-keywords-in-a-paragraph
@@ -1778,6 +1774,7 @@
 	 */
 	function error_json($code) {
 		require_once "errors.php";
+		global $ERRORS;
 
 		@$message = $ERRORS[$code];
 
