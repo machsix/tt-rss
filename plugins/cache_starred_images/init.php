@@ -40,13 +40,13 @@ class Cache_Starred_Images extends Plugin {
 
 		Debug::log("caching media of starred articles for user " . $this->host->get_owner_uid() . "...");
 
-		$sth = $this->pdo->prepare("SELECT content, ttrss_entries.title, 
+		$sth = $this->pdo->prepare("SELECT content, ttrss_entries.title,
        		ttrss_user_entries.owner_uid, link, site_url, ttrss_entries.id, plugin_data
 			FROM ttrss_entries, ttrss_user_entries LEFT JOIN ttrss_feeds ON
 				(ttrss_user_entries.feed_id = ttrss_feeds.id)
 			WHERE ref_id = ttrss_entries.id AND
 				marked = true AND
-				site_url != '' AND 
+				site_url != '' AND
 			    ttrss_user_entries.owner_uid = ? AND
 				plugin_data NOT LIKE '%starred_cache_images%'
 			ORDER BY ".sql_random_function()." LIMIT 100");
@@ -74,7 +74,8 @@ class Cache_Starred_Images extends Plugin {
 
 		Debug::log("expiring " . $this->cache->getDir() . "...");
 
-		$files = glob($this->cache->getDir() . "/*.{png,mp4,status}", GLOB_BRACE);
+		$GLOB_BRACE = 0x10; // https://github.com/docker-library/php/issues/719
+		$files = glob($this->cache->getDir() . "/*.{png,mp4,status}", $GLOB_BRACE);
 
 		$last_article_id = 0;
 		$article_exists = 1;
