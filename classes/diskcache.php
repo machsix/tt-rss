@@ -407,18 +407,16 @@ class DiskCache
 			$num_deleted = 0;
 
 			if (is_writable($cache_dir) && !file_exists("$cache_dir/.no-auto-expiry")) {
-				$files = glob("$cache_dir/*");
-
-				if ($files) {
-					foreach ($files as $file) {
+        $di = new RecursiveDirectoryIterator($cache_dir);
+        foreach (new RecursiveIteratorIterator($di) as $filename => $file) {
+          if (is_file($file)) {
 						if (time() - filemtime($file) > 86400 * CACHE_MAX_DAYS) {
 							unlink($file);
 
 							++$num_deleted;
 						}
-					}
-				}
-
+          }
+        }
 				Debug::log("Expired $cache_dir: removed $num_deleted files.");
 			}
 		}
