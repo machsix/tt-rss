@@ -598,18 +598,22 @@ class FeverAPI extends Handler {
 				} catch (PDOException $e) {
 					/* nop */
 				}
+    
+        $pluginhost = new PluginHost();
+        $pluginhost->load_all(PluginHost::KIND_ALL);
+        $pluginhost->load_data();
 
         while ($line = $sth->fetch())
         {
             $line_content = sanitize(
-                                $line["content"],
-                                API::param_to_bool($line['hide_images']),
-								false, $line["site_url"], false, $line["id"]);
+              $line["content"],
+              API::param_to_bool($line['hide_images']),
+              false, $line["site_url"], false, $line["id"]);
             if ($line["cache_images"] && in_array($line["feed_id"], $enabled_feeds)) {
-				$line_content = DiskCache::rewriteUrls($line_content, $line["site_url"], true);
-			} else {
-				$line_content = DiskCache::rewriteUrls($line_content, $line["site_url"]);
-			}
+              $line_content = DiskCache::rewriteUrls($line_content, $line["site_url"], true);
+            } else {
+              $line_content = DiskCache::rewriteUrls($line_content, $line["site_url"]);
+            }
             $line_content = str_replace('&amp;', '&', $line_content);
             $bad = array('<?xml encoding="UTF-8">', '<body>','</body>','<html>','</html>');
             $line_content = str_ireplace($bad, "", $line_content);
@@ -620,6 +624,9 @@ class FeverAPI extends Handler {
                     $line_content .= '<ul type="lower-greek">';
                     foreach ($enclosures as $enclosure) {
                         if (!empty($enclosure["content_url"])) {
+                            foreach ($pluginhost->get_hooks(PluginHost::HOOK_ENCLOSURE_ENTRY) as $plugin) {
+                              $enclosure = $plugin->hook_enclosure_entry($enclosure, $line["id"]);
+                            }
                             $enc_type = "";
                             if (!empty($enclosure["content_type"])) {
                                 $enc_type = ", " . $enclosure["content_type"];
