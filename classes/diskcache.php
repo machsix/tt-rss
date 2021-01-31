@@ -223,7 +223,6 @@ class DiskCache
 
 	public function exists($filename)
 	{
-		Debug::log("Check exists: " . $this->getFullPath($filename));
 		return file_exists($this->getFullPath($filename));
 	}
 

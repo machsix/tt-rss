@@ -598,14 +598,13 @@ class FeverAPI extends Handler {
 				} catch (PDOException $e) {
 					/* nop */
 				}
-    
+
         $pluginhost = new PluginHost();
         $pluginhost->load_all(PluginHost::KIND_ALL);
-        $pluginhost->load_data();
 
         while ($line = $sth->fetch())
         {
-            $line_content = sanitize(
+            $line_content = Sanitizer::sanitize(
               $line["content"],
               API::param_to_bool($line['hide_images']),
               false, $line["site_url"], false, $line["id"]);
