@@ -2,6 +2,8 @@ Thumbs.db
 /deploy.exclude
 /deploy.sh
 /messages.mo
+/node_modules
+/package-lock.json
 *~
 *.DS_Store
 #*
@@ -20,3 +22,4 @@ web.config
 /.gutentags
 update.log
 plugins.local/fever/test.py
+/.vscode/settings.json

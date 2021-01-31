@@ -14,6 +14,7 @@ class PluginHost {
 	private $plugin_actions = array();
 	private $owner_uid;
 	private $last_registered;
+	private $data_loaded;
 	private static $instance;
 
 	const API_VERSION = 2;
@@ -68,6 +69,7 @@ class PluginHost {
 	const HOOK_ENCLOSURE_IMPORTED = 45;
 	const HOOK_HEADLINES_CUSTOM_SORT_MAP = 46;
 	const HOOK_HEADLINES_CUSTOM_SORT_OVERRIDE = 47;
+	const HOOK_HEADLINE_TOOLBAR_SELECT_MENU_ITEM = 48;
 
 	const KIND_ALL = 1;
 	const KIND_SYSTEM = 2;
@@ -155,7 +157,7 @@ class PluginHost {
 			foreach (array_keys($this->hooks[$type]) as $prio) {
 				$key = array_search($sender, $this->hooks[$type][$prio]);
 
-				if ($key !== FALSE) {
+				if ($key !== false) {
 					unset($this->hooks[$type][$prio][$key]);
 				}
 			}
@@ -193,7 +195,7 @@ class PluginHost {
 
 		foreach ($plugins as $class) {
 			$class = trim($class);
-			$class_file = strtolower(clean_filename($class));
+			$class_file = strtolower(basename(clean($class)));
 
 			if (!is_dir(__DIR__."/../plugins/$class_file") &&
 					!is_dir(__DIR__."/../plugins.local/$class_file")) continue;
@@ -218,7 +220,7 @@ class PluginHost {
 					if (file_exists($vendor_dir)) {
 						spl_autoload_register(function($class) use ($vendor_dir) {
 
-							if (strpos($class, '\\') !== FALSE) {
+							if (strpos($class, '\\') !== false) {
 								list ($namespace, $class_name) = explode('\\', $class, 2);
 
 								if ($namespace && $class_name) {
@@ -235,8 +237,8 @@ class PluginHost {
 
 					$plugin_api = $plugin->api_version();
 
-					if ($plugin_api < PluginHost::API_VERSION) {
-						user_error("Plugin $class is not compatible with current API version (need: " . PluginHost::API_VERSION . ", got: $plugin_api)", E_USER_WARNING);
+					if ($plugin_api < self::API_VERSION) {
+						user_error("Plugin $class is not compatible with current API version (need: " . self::API_VERSION . ", got: $plugin_api)", E_USER_WARNING);
 						continue;
 					}
 
@@ -268,6 +270,8 @@ class PluginHost {
 				}
 			}
 		}
+
+		$this->load_data();
 	}
 
 	function is_system($plugin) {
@@ -352,8 +356,8 @@ class PluginHost {
 		}
 	}
 
-	function load_data() {
-		if ($this->owner_uid)  {
+	private function load_data() {
+		if ($this->owner_uid && !$this->data_loaded && get_schema_version() > 100)  {
 			$sth = $this->pdo->prepare("SELECT name, content FROM ttrss_plugin_storage
 				WHERE owner_uid = ?");
 			$sth->execute([$this->owner_uid]);
@@ -361,6 +365,8 @@ class PluginHost {
 			while ($line = $sth->fetch()) {
 				$this->storage[$line["name"]] = unserialize($line["content"]);
 			}
+
+			$this->data_loaded = true;
 		}
 	}
 
@@ -410,6 +416,8 @@ class PluginHost {
 
 	function get($sender, $name, $default_value = false) {
 		$idx = get_class($sender);
+
+		$this->load_data();
 
 		if (isset($this->storage[$idx][$name])) {
 			return $this->storage[$idx][$name];

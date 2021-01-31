@@ -45,7 +45,7 @@ class Handler_Public extends Handler {
 			$tmppluginhost = new PluginHost();
 			$tmppluginhost->load(PLUGINS, PluginHost::KIND_ALL);
 			$tmppluginhost->load($user_plugins, PluginHost::KIND_USER, $owner_uid);
-			$tmppluginhost->load_data();
+			//$tmppluginhost->load_data();
 
 			$handler = $tmppluginhost->get_feed_handler(
 				PluginHost::feed_to_pfeed_id($feed));
@@ -81,14 +81,15 @@ class Handler_Public extends Handler {
 			$tpl->setVariable('SELF_URL', htmlspecialchars(get_self_url_prefix()), true);
 			while ($line = $result->fetch()) {
 
-				$line["content_preview"] = sanitize(truncate_string(strip_tags($line["content"]), 100, '...'));
+				$line["content_preview"] = Sanitizer::sanitize(truncate_string(strip_tags($line["content"]), 100, '...'));
+				$line["tags"] = Article::get_article_tags($line["id"], $owner_uid);
 
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_QUERY_HEADLINES) as $p) {
 					$line = $p->hook_query_headlines($line);
 				}
 
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_ARTICLE_EXPORT_FEED) as $p) {
-					$line = $p->hook_article_export_feed($line, $feed, $is_cat);
+					$line = $p->hook_article_export_feed($line, $feed, $is_cat, $owner_uid);
 				}
 
 				$tpl->setVariable('ARTICLE_ID',
@@ -98,7 +99,7 @@ class Handler_Public extends Handler {
 				$tpl->setVariable('ARTICLE_TITLE', htmlspecialchars($line['title']), true);
 				$tpl->setVariable('ARTICLE_EXCERPT', $line["content_preview"], true);
 
-				$content = sanitize($line["content"], false, $owner_uid,
+				$content = Sanitizer::sanitize($line["content"], false, $owner_uid,
 					$feed_site_url, false, $line["id"]);
 
 				$content = DiskCache::rewriteUrls($content);
@@ -121,9 +122,7 @@ class Handler_Public extends Handler {
 				$tpl->setVariable('ARTICLE_SOURCE_LINK', htmlspecialchars($line['site_url'] ? $line["site_url"] : get_self_url_prefix()), true);
 				$tpl->setVariable('ARTICLE_SOURCE_TITLE', htmlspecialchars($line['feed_title'] ? $line['feed_title'] : $feed_title), true);
 
-				$tags = Article::get_article_tags($line["id"], $owner_uid);
-
-				foreach ($tags as $tag) {
+				foreach ($line["tags"] as $tag) {
 					$tpl->setVariable('ARTICLE_CATEGORY', htmlspecialchars($tag), true);
 					$tpl->addBlock('category');
 				}
@@ -180,7 +179,8 @@ class Handler_Public extends Handler {
 
 			while ($line = $result->fetch()) {
 
-				$line["content_preview"] = sanitize(truncate_string(strip_tags($line["content_preview"]), 100, '...'));
+				$line["content_preview"] = Sanitizer::sanitize(truncate_string(strip_tags($line["content_preview"]), 100, '...'));
+				$line["tags"] = Article::get_article_tags($line["id"], $owner_uid);
 
 				foreach (PluginHost::getInstance()->get_hooks(PluginHost::HOOK_QUERY_HEADLINES) as $p) {
 					$line = $p->hook_query_headlines($line, 100);
@@ -196,18 +196,16 @@ class Handler_Public extends Handler {
 				$article['link']	= $line['link'];
 				$article['title'] = $line['title'];
 				$article['excerpt'] = $line["content_preview"];
-				$article['content'] = sanitize($line["content"], false, $owner_uid, $feed_site_url, false, $line["id"]);
+				$article['content'] = Sanitizer::sanitize($line["content"], false, $owner_uid, $feed_site_url, false, $line["id"]);
 				$article['updated'] = date('c', strtotime($line["updated"]));
 
 				if ($line['note']) $article['note'] = $line['note'];
 				if ($article['author']) $article['author'] = $line['author'];
 
-				$tags = Article::get_article_tags($line["id"], $owner_uid);
-
-				if (count($tags) > 0) {
+				if (count($line["tags"]) > 0) {
 					$article['tags'] = array();
 
-					foreach ($tags as $tag) {
+					foreach ($line["tags"] as $tag) {
 						array_push($article['tags'], $tag);
 					}
 				}
@@ -283,15 +281,20 @@ class Handler_Public extends Handler {
 	}
 
 	function logout() {
-		logout_user();
-		header("Location: index.php");
+		if (validate_csrf($_POST["csrf_token"])) {
+			Pref_Users::logout_user();
+			header("Location: index.php");
+		} else {
+			header("Content-Type: text/json");
+			print error_json(6);
+		}
 	}
 
 	function share() {
 		$uuid = clean($_REQUEST["key"]);
 
 		if ($uuid) {
-			$sth = $this->pdo->prepare("SELECT ref_id, owner_uid 
+			$sth = $this->pdo->prepare("SELECT ref_id, owner_uid
 						FROM ttrss_user_entries WHERE uuid = ?");
 			$sth->execute([$uuid]);
 
@@ -325,7 +328,6 @@ class Handler_Public extends Handler {
 			tag_cache,
 			author,
 			guid,
-			orig_feed_id,
 			note
 			FROM ttrss_entries,ttrss_user_entries
 			WHERE	id = ? AND ref_id = id AND owner_uid = ?");
@@ -338,7 +340,7 @@ class Handler_Public extends Handler {
 			$line["tags"] = Article::get_article_tags($id, $owner_uid, $line["tag_cache"]);
 			unset($line["tag_cache"]);
 
-			$line["content"] = sanitize($line["content"],
+			$line["content"] = Sanitizer::sanitize($line["content"],
 				$line['hide_images'],
 				$owner_uid, $line["site_url"], false, $line["id"]);
 
@@ -366,7 +368,7 @@ class Handler_Public extends Handler {
 					}
                     body.css_loading * {
 						display : none;
-					}                   
+					}
 					</style>
                     <link rel='shortcut icon' type='image/png' href='images/favicon.png'>
                     <link rel='icon' type='image/png' sizes='72x72' href='images/favicon-72px.png'>";
@@ -409,7 +411,7 @@ class Handler_Public extends Handler {
 			$rv .= "<div class='row'>"; # row
 
 			//$entry_author = $line["author"] ? " - " . $line["author"] : "";
-			$parsed_updated = make_local_datetime($line["updated"], true,
+			$parsed_updated = TimeHelper::make_local_datetime($line["updated"], true,
 				$owner_uid, true);
 
 			$rv .= "<div>".$line['author']."</div>";
@@ -465,7 +467,7 @@ class Handler_Public extends Handler {
 		if (!$format) $format = 'atom';
 
 		if (SINGLE_USER_MODE) {
-			authenticate_user("admin", null);
+			UserHelper::authenticate("admin", null);
 		}
 
 		$owner_id = false;
@@ -503,7 +505,7 @@ class Handler_Public extends Handler {
 
 	function sharepopup() {
 		if (SINGLE_USER_MODE) {
-			login_sequence();
+			UserHelper::login_sequence();
 		}
 
 		header('Content-Type: text/html; charset=utf-8');
@@ -668,6 +670,7 @@ class Handler_Public extends Handler {
 			$login = clean($_POST["login"]);
 			$password = clean($_POST["password"]);
 			$remember_me = clean($_POST["remember_me"]);
+			$safe_mode = checkbox_to_sql_bool(clean($_POST["safe_mode"]));
 
 			if ($remember_me) {
 				@session_set_cookie_params(SESSION_COOKIE_LIFETIME);
@@ -675,7 +678,7 @@ class Handler_Public extends Handler {
 				@session_set_cookie_params(0);
 			}
 
-			if (authenticate_user($login, $password)) {
+			if (UserHelper::authenticate($login, $password)) {
 				$_POST["password"] = "";
 
 				if (get_schema_version() >= 120) {
@@ -684,6 +687,7 @@ class Handler_Public extends Handler {
 
 				$_SESSION["ref_schema_version"] = get_schema_version(true);
 				$_SESSION["bw_limit"] = !!clean($_POST["bw_limit"]);
+				$_SESSION["safe_mode"] = $safe_mode;
 
 				if (clean($_POST["profile"])) {
 
@@ -707,7 +711,7 @@ class Handler_Public extends Handler {
 				if (!isset($_SESSION["login_error_msg"]))
 					$_SESSION["login_error_msg"] = __("Incorrect username or password");
 
-				user_error("Failed login attempt for $login from {$_SERVER['REMOTE_ADDR']}", E_USER_WARNING);
+				user_error("Failed login attempt for $login from " . UserHelper::get_user_ip(), E_USER_WARNING);
 			}
 
 			$return = clean($_REQUEST['return']);
@@ -722,12 +726,13 @@ class Handler_Public extends Handler {
 
 	function subscribe() {
 		if (SINGLE_USER_MODE) {
-			login_sequence();
+			UserHelper::login_sequence();
 		}
 
 		if ($_SESSION["uid"]) {
 
 			$feed_url = trim(clean($_REQUEST["feed_url"]));
+			$csrf_token = clean($_POST["csrf_token"]);
 
 			header('Content-Type: text/html; charset=utf-8');
 			?>
@@ -774,13 +779,14 @@ class Handler_Public extends Handler {
 			<div class='content'>
 			<?php
 
-			if (!$feed_url) {
+			if (!$feed_url || !validate_csrf($csrf_token)) {
 				?>
 				<form method="post">
 					<input type="hidden" name="op" value="subscribe">
+					<?php print_hidden("csrf_token", $_SESSION["csrf_token"]) ?>
 					<fieldset>
 						<label>Feed or site URL:</label>
-						<input style="width: 300px" dojoType="dijit.form.ValidationTextBox" required="1" name="feed_url">
+						<input style="width: 300px" dojoType="dijit.form.ValidationTextBox" required="1" name="feed_url" value="<?php echo htmlspecialchars($feed_url) ?>">
 					</fieldset>
 
 					<button class="alt-primary" dojoType="dijit.form.Button" type="submit">
@@ -820,6 +826,7 @@ class Handler_Public extends Handler {
 
 					print "<form action='public.php'>";
 					print "<input type='hidden' name='op' value='subscribe'>";
+					print_hidden("csrf_token", $_SESSION["csrf_token"]);
 
 					print "<fieldset>";
 					print "<label style='display : inline'>" . __("Multiple feed URLs found:") . "</label>";
@@ -868,7 +875,7 @@ class Handler_Public extends Handler {
 			print "</div></div></body></html>";
 
 		} else {
-			render_login_form();
+			$this->render_login_form();
 		}
 	}
 
@@ -932,7 +939,7 @@ class Handler_Public extends Handler {
 
 					if ($timestamp && $resetpass_token &&
 						$timestamp >= time() - 15*60*60 &&
-						$resetpass_token == $hash) {
+						$resetpass_token === $hash) {
 
 							$sth = $this->pdo->prepare("UPDATE ttrss_users SET resetpass_token = NULL
 								WHERE id = ?");
@@ -1082,7 +1089,7 @@ class Handler_Public extends Handler {
 
 		if (!SINGLE_USER_MODE && $_SESSION["access_level"] < 10) {
 			$_SESSION["login_error_msg"] = __("Your access level is insufficient to run this script.");
-			render_login_form();
+			$this->render_login_form();
 			exit;
 		}
 
@@ -1234,11 +1241,11 @@ class Handler_Public extends Handler {
 	public function pluginhandler() {
 		$host = new PluginHost();
 
-		$plugin_name = clean_filename($_REQUEST["plugin"]);
+		$plugin_name = basename(clean($_REQUEST["plugin"]));
 		$method = clean($_REQUEST["pmethod"]);
 
 		$host->load($plugin_name, PluginHost::KIND_USER, 0);
-		$host->load_data();
+		//$host->load_data();
 
 		$plugin = $host->get_plugin($plugin_name);
 
@@ -1262,5 +1269,13 @@ class Handler_Public extends Handler {
 			print error_json(14);
 		}
 	}
+
+	static function render_login_form() {
+		header('Cache-Control: public');
+
+		require_once "login_form.php";
+		exit;
+	}
+
 }
 ?>

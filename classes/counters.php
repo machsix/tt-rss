@@ -2,12 +2,12 @@
 class Counters {
 
 	static function getAllCounters() {
-		$data = Counters::getGlobalCounters();
+		$data = self::getGlobalCounters();
 
-		$data = array_merge($data, Counters::getVirtCounters());
-		$data = array_merge($data, Counters::getLabelCounters());
-		$data = array_merge($data, Counters::getFeedCounters());
-		$data = array_merge($data, Counters::getCategoryCounters());
+		$data = array_merge($data, self::getVirtCounters());
+		$data = array_merge($data, self::getLabelCounters());
+		$data = array_merge($data, self::getFeedCounters());
+		$data = array_merge($data, self::getCategoryCounters());
 
 		return $data;
 	}
@@ -23,7 +23,7 @@ class Counters {
 		$marked = 0;
 
 		while ($line = $sth->fetch()) {
-			list ($tmp_unread, $tmp_marked) = Counters::getCategoryChildrenCounters($line["id"], $owner_uid);
+			list ($tmp_unread, $tmp_marked) = self::getCategoryChildrenCounters($line["id"], $owner_uid);
 
 			$unread += $tmp_unread + Feeds::getCategoryUnread($line["id"], $owner_uid);
 			$marked += $tmp_marked + Feeds::getCategoryMarked($line["id"], $owner_uid);
@@ -42,7 +42,7 @@ class Counters {
 
 		array_push($ret, $cv);
 
-		$pdo = DB::pdo();
+		$pdo = Db::pdo();
 
 		$sth = $pdo->prepare("SELECT fc.id,
 				SUM(CASE WHEN unread THEN 1 ELSE 0 END) AS count,
@@ -68,7 +68,7 @@ class Counters {
 
 		while ($line = $sth->fetch()) {
 			if ($line["num_children"] > 0) {
-				list ($child_counter, $child_marked_counter) = Counters::getCategoryChildrenCounters($line["id"], $_SESSION["uid"]);
+				list ($child_counter, $child_marked_counter) = self::getCategoryChildrenCounters($line["id"], $_SESSION["uid"]);
 			} else {
 				$child_counter = 0;
 				$child_marked_counter = 0;
@@ -112,7 +112,7 @@ class Counters {
 
 			$id = $line["id"];
 			$last_error = htmlspecialchars($line["last_error"]);
-			$last_updated = make_local_datetime($line['last_updated'], false);
+			$last_updated = TimeHelper::make_local_datetime($line['last_updated'], false);
 
 			if (Feeds::feedHasIcon($id)) {
 				$has_img = filemtime(Feeds::getIconFile($id));
@@ -234,8 +234,8 @@ class Counters {
        			COUNT(u1.unread) AS total
 			FROM ttrss_labels2 LEFT JOIN ttrss_user_labels2 ON
 				(ttrss_labels2.id = label_id)
-					LEFT JOIN ttrss_user_entries AS u1 ON u1.ref_id = article_id
-						WHERE ttrss_labels2.owner_uid = :uid AND u1.owner_uid = :uid
+					LEFT JOIN ttrss_user_entries AS u1 ON u1.ref_id = article_id AND u1.owner_uid = :uid
+						WHERE ttrss_labels2.owner_uid = :uid
 							GROUP BY ttrss_labels2.id, ttrss_labels2.caption");
 		$sth->execute([":uid" => $_SESSION['uid']]);
 

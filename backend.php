@@ -12,15 +12,14 @@
 
 	/* Public calls compatibility shim */
 
-	$public_calls = array("globalUpdateFeeds", "rss", "getUnread", "getProfiles", "share",
-		"fbexport", "logout", "pubsub");
+	$public_calls = array("globalUpdateFeeds", "rss", "getUnread", "getProfiles", "share");
 
 	if (array_search($op, $public_calls) !== false) {
 		header("Location: public.php?" . $_SERVER['QUERY_STRING']);
 		return;
 	}
 
-	@$csrf_token = $_REQUEST['csrf_token'];
+	@$csrf_token = $_POST['csrf_token'];
 
 	require_once "autoload.php";
 	require_once "sessions.php";
@@ -42,7 +41,7 @@
 	}
 
 	if (SINGLE_USER_MODE) {
-		authenticate_user( "admin", null);
+		UserHelper::authenticate( "admin", null);
 	}
 
 	if ($_SESSION["uid"]) {
@@ -51,13 +50,13 @@
 			print error_json(6);
 			return;
 		}
-		load_user_plugins( $_SESSION["uid"]);
+		UserHelper::load_user_plugins($_SESSION["uid"]);
 	}
 
 	$purge_intervals = array(
 		0  => __("Use default"),
 		-1 => __("Never purge"),
-		5  => __("1 week old"),
+		7  => __("1 week old"),
 		14 => __("2 weeks old"),
 		31 => __("1 month old"),
 		60 => __("2 months old"),
@@ -108,7 +107,14 @@
 			if (validate_csrf($csrf_token) || $handler->csrf_ignore($method)) {
 				if ($handler->before($method)) {
 					if ($method && method_exists($handler, $method)) {
-						$handler->$method();
+						$reflection = new ReflectionMethod($handler, $method);
+
+						if ($reflection->getNumberOfRequiredParameters() == 0) {
+							$handler->$method();
+						} else {
+							header("Content-Type: text/json");
+							print error_json(6);
+						}
 					} else {
 						if (method_exists($handler, "catchall")) {
 							$handler->catchall($method);

@@ -300,6 +300,16 @@ const Headlines = {
 			}
 		}
 	},
+	unpackVisible: function(container) {
+		const rows = $$("#headlines-frame > div[id*=RROW][data-content].cdm");
+
+		for (let i = 0; i < rows.length; i++) {
+			if (App.Scrollable.isChildVisible(rows[i], container)) {
+				console.log('force unpacking:', rows[i].getAttribute('id'));
+				Article.unpack(rows[i]);
+			}
+		}
+	},
 	scrollHandler: function (/*event*/) {
 		try {
 			if (!Feeds.infscroll_disabled && !Feeds.infscroll_in_progress) {
@@ -318,6 +328,14 @@ const Headlines = {
 						return;
 					}
 				}
+			}
+
+			if (App.isCombinedMode() && App.getInitParam("cdm_expanded")) {
+				const container = $("headlines-frame")
+
+				/* don't do anything until there was some scrolling */
+				if (container.scrollTop > 0)
+					Headlines.unpackVisible(container);
 			}
 
 			if (App.getInitParam("cdm_auto_catchup")) {
@@ -420,7 +438,6 @@ const Headlines = {
 			row_class += App.getInitParam("cdm_expanded") ? " expanded" : " expandable";
 
 			const comments = Article.formatComments(hl);
-			const originally_from = Article.formatOriginallyFrom(hl);
 
 			row = `<div class="cdm ${row_class} ${Article.getScoreClass(hl.score)}"
 						id="RROW-${hl.id}"
@@ -483,7 +500,6 @@ const Headlines = {
 								</div>
 
 								<div class="right">
-									${originally_from}
 									${hl.buttons}
 								</div>
 							</div>
@@ -1085,42 +1101,6 @@ const Headlines = {
 			}
 		}
 	},
-	archiveSelection: function () {
-		const rows = Headlines.getSelected();
-
-		if (rows.length == 0) {
-			alert(__("No articles selected."));
-			return;
-		}
-
-		const fn = Feeds.getName(Feeds.getActive(), Feeds.activeIsCat());
-		let str;
-		let op;
-
-		if (Feeds.getActive() != 0) {
-			str = ngettext("Archive %d selected article in %s?", "Archive %d selected articles in %s?", rows.length);
-			op = "archive";
-		} else {
-			str = ngettext("Move %d archived article back?", "Move %d archived articles back?", rows.length);
-			str += " " + __("Please note that unstarred articles might get purged on next feed update.");
-
-			op = "unarchive";
-		}
-
-		str = str.replace("%d", rows.length);
-		str = str.replace("%s", fn);
-
-		if (App.getInitParam("confirm_feed_catchup") && !confirm(str)) {
-			return;
-		}
-
-		const query = {op: "rpc", method: op, ids: rows.toString()};
-
-		xhrPost("backend.php", query, (transport) => {
-			App.handleRpcJson(transport);
-			Feeds.reloadCurrent();
-		});
-	},
 	catchupSelection: function () {
 		const rows = Headlines.getSelected();
 
@@ -1205,11 +1185,6 @@ const Headlines = {
 				});
 			});
 		}
-	},
-	onActionChanged: function (elem) {
-		// eslint-disable-next-line no-eval
-		eval(elem.value);
-		elem.attr('value', 'false');
 	},
 	scrollToArticleId: function (id) {
 		const container = $("headlines-frame");

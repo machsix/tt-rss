@@ -49,7 +49,7 @@ class Cache_Starred_Images extends Plugin {
 				site_url != '' AND
 			    ttrss_user_entries.owner_uid = ? AND
 				plugin_data NOT LIKE '%starred_cache_images%'
-			ORDER BY ".sql_random_function()." LIMIT 100");
+			ORDER BY ".Db::sql_random_function()." LIMIT 100");
 
 		if ($sth->execute([$this->host->get_owner_uid()])) {
 
@@ -140,7 +140,7 @@ class Cache_Starred_Images extends Plugin {
 		if (!$this->cache->exists($local_filename)) {
 			Debug::log("cache_images: downloading: $url to $local_filename", Debug::$LOG_VERBOSE);
 
-			$data = fetch_file_contents(["url" => $url, "max_size" => MAX_CACHE_FILE_SIZE]);
+			$data = UrlHelper::fetch(["url" => $url, "max_size" => MAX_CACHE_FILE_SIZE]);
 
 			if ($data)
 				return $this->cache->put($local_filename, $data);;
@@ -191,7 +191,7 @@ class Cache_Starred_Images extends Plugin {
 		$has_images = false;
 		$success = false;
 
-        if ($doc->loadHTML('<?xml encoding="UTF-8">' . $content)) {
+        if (@$doc->loadHTML('<?xml encoding="UTF-8">' . $content)) {
 			$xpath = new DOMXPath($doc);
 			$entries = $xpath->query('(//img[@src])|(//video/source[@src])');
 

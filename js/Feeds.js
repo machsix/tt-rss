@@ -226,23 +226,25 @@ const	Feeds = {
 			if (dijit.byId("defaultPasswordDlg"))
 				dijit.byId("defaultPasswordDlg").destroyRecursive();
 
-			const dialog = new dijit.Dialog({
-				title: __("Your password is at default value"),
-				href: "backend.php?op=dlg&method=defaultpasswordwarning",
-				id: 'defaultPasswordDlg',
-				style: "width: 600px",
-				onCancel: function () {
-					return true;
-				},
-				onExecute: function () {
-					return true;
-				},
-				onClose: function () {
-					return true;
-				}
-			});
+			xhrPost("backend.php", {op: 'dlg', method: 'defaultpasswordwarning'}, (transport) => {
+				const dialog = new dijit.Dialog({
+					title: __("Your password is at default value"),
+					content: transport.responseText,
+					id: 'defaultPasswordDlg',
+					style: "width: 600px",
+					onCancel: function () {
+						return true;
+					},
+					onExecute: function () {
+						return true;
+					},
+					onClose: function () {
+						return true;
+					}
+				});
 
-			dialog.show();
+				dialog.show();
+			});
 		}
 
 		// bw_limit disables timeout() so we request initial counters separately
@@ -439,7 +441,8 @@ const	Feeds = {
 
 			const show_next_feed = App.getInitParam("on_catchup_show_next_feed");
 
-			if (show_next_feed) {
+			// only select next unread feed if catching up entirely (as opposed to last week etc)
+			if (show_next_feed && !mode) {
 				const nuf = this.getNextUnread(feed, is_cat);
 
 				if (nuf) {
@@ -552,47 +555,51 @@ const	Feeds = {
 			return tree.model.store.getValue(nuf, 'bare_id');
 	},
 	search: function() {
-		const query = "backend.php?op=feeds&method=search&param=" +
-			encodeURIComponent(Feeds.getActive() + ":" + Feeds.activeIsCat());
-
 		if (dijit.byId("searchDlg"))
 			dijit.byId("searchDlg").destroyRecursive();
 
-		const dialog = new dijit.Dialog({
-			id: "searchDlg",
-			title: __("Search"),
-			style: "width: 600px",
-			execute: function () {
-				if (this.validate()) {
-					Feeds._search_query = this.attr('value');
+		xhrPost("backend.php",
+					{op: "feeds", method: "search",
+						param: Feeds.getActive() + ":" + Feeds.activeIsCat()},
+					(transport) => {
 
-					// disallow empty queries
-					if (!Feeds._search_query.query)
-						Feeds._search_query = false;
+						const dialog = new dijit.Dialog({
+							id: "searchDlg",
+							content: transport.responseText,
+							title: __("Search"),
+							style: "width: 600px",
+							execute: function () {
+								if (this.validate()) {
+									Feeds._search_query = this.attr('value');
 
-					this.hide();
-					Feeds.reloadCurrent();
-				}
-			},
-			href: query
-		});
+									// disallow empty queries
+									if (!Feeds._search_query.query)
+										Feeds._search_query = false;
 
-		const tmph = dojo.connect(dialog, 'onLoad', function () {
-			dojo.disconnect(tmph);
+									this.hide();
+									Feeds.reloadCurrent();
+								}
+							},
+						});
 
-			if (Feeds._search_query) {
-				if (Feeds._search_query.query)
-					dijit.byId('search_query')
-						.attr('value', Feeds._search_query.query);
+						const tmph = dojo.connect(dialog, 'onShow', function () {
+							dojo.disconnect(tmph);
 
-				if (Feeds._search_query.search_language)
-					dijit.byId('search_language')
-						.attr('value', Feeds._search_query.search_language);
-			}
+							if (Feeds._search_query) {
+								if (Feeds._search_query.query)
+									dijit.byId('search_query')
+										.attr('value', Feeds._search_query.query);
 
-		});
+								if (Feeds._search_query.search_language)
+									dijit.byId('search_language')
+										.attr('value', Feeds._search_query.search_language);
+							}
 
-		dialog.show();
+						});
+
+						dialog.show();
+					});
+
 	},
 	updateRandom: function() {
 		console.log("in update_random_feed");

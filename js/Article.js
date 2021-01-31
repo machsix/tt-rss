@@ -131,14 +131,11 @@ const Article = {
 		});
 	},
 	openInNewWindow: function (id) {
-		const w = window.open("");
+		/* global __csrf_token */
+		App.postOpenWindow("backend.php",
+			{ "op": "article", "method": "redirect", "id": id, "csrf_token": __csrf_token });
 
-		if (w) {
-			w.opener = null;
-			w.location = "backend.php?op=article&method=redirect&id=" + id;
-
-			Headlines.toggleUnread(id, 0);
-		}
+		Headlines.toggleUnread(id, 0);
 	},
 	render: function (article) {
 		App.cleanupMemory("content-insert");
@@ -173,15 +170,10 @@ const Article = {
 				comments_msg = hl.num_comments + " " + ngettext("comment", "comments", hl.num_comments)
 			}
 
-			comments = `<a href="${App.escapeHtml(hl.comments ? hl.comments : hl.link)}">(${comments_msg})</a>`;
+			comments = `<a target="_blank" rel="noopener noreferrer" href="${App.escapeHtml(hl.comments ? hl.comments : hl.link)}">(${comments_msg})</a>`;
 		}
 
 		return comments;
-	},
-	formatOriginallyFrom: function(hl) {
-		return hl.orig_feed ? `<span>
-				${__('Originally from:')} <a target="_blank" rel="noopener noreferrer" href="${App.escapeHtml(hl.orig_feed[1])}">${hl.orig_feed[0]}</a>
-				</span>` : "";
 	},
 	unpack: function(row) {
 		if (row.hasAttribute("data-content")) {
@@ -223,7 +215,6 @@ const Article = {
 			if (hl) {
 
 				const comments = this.formatComments(hl);
-				const originally_from = this.formatOriginallyFrom(hl);
 
 				const article = `<div class="post post-${hl.id}" data-article-id="${hl.id}">
 					<div class="header">
@@ -246,7 +237,6 @@ const Article = {
 					</div>
 					<div id="POSTNOTE-${hl.id}">${hl.note}</div>
 					<div class="content" lang="${hl.lang ? hl.lang : 'en'}">
-						${originally_from}
 						${hl.content}
 						${hl.enclosures}
 					</div>
@@ -260,53 +250,56 @@ const Article = {
 		return false;
 	},
 	editTags: function (id) {
-		const query = "backend.php?op=article&method=editArticleTags&param=" + encodeURIComponent(id);
-
 		if (dijit.byId("editTagsDlg"))
 			dijit.byId("editTagsDlg").destroyRecursive();
 
-		const dialog = new dijit.Dialog({
-			id: "editTagsDlg",
-			title: __("Edit article Tags"),
-			style: "width: 600px",
-			execute: function () {
-				if (this.validate()) {
-					Notify.progress("Saving article tags...", true);
+		xhrPost("backend.php", {op: "article", method: "editarticletags", param: id}, (transport) => {
 
-					xhrPost("backend.php", this.attr('value'), (transport) => {
-						try {
-							Notify.close();
-							dialog.hide();
+			const dialog = new dijit.Dialog({
+				id: "editTagsDlg",
+				title: __("Edit article Tags"),
+				style: "width: 600px",
+				content: transport.responseText,
+				execute: function () {
+					if (this.validate()) {
+						Notify.progress("Saving article tags...", true);
 
-							const data = JSON.parse(transport.responseText);
+						xhrPost("backend.php", this.attr('value'), (transport) => {
+							try {
+								Notify.close();
+								dialog.hide();
 
-							if (data) {
-								const id = data.id;
+								const data = JSON.parse(transport.responseText);
 
-								const tags = $("ATSTR-" + id);
-								const tooltip = dijit.byId("ATSTRTIP-" + id);
+								if (data) {
+									const id = data.id;
 
-								if (tags) tags.innerHTML = data.content;
-								if (tooltip) tooltip.attr('label', data.content_full);
+									const tags = $("ATSTR-" + id);
+									const tooltip = dijit.byId("ATSTRTIP-" + id);
+
+									if (tags) tags.innerHTML = data.content;
+									if (tooltip) tooltip.attr('label', data.content_full);
+								}
+							} catch (e) {
+								App.Error.report(e);
 							}
-						} catch (e) {
-							App.Error.report(e);
-						}
-					});
-				}
-			},
-			href: query
+						});
+					}
+				},
+			});
+
+			const tmph = dojo.connect(dialog, 'onShow', function () {
+				dojo.disconnect(tmph);
+
+				new Ajax.Autocompleter('tags_str', 'tags_choices',
+					"backend.php?op=article&method=completeTags",
+					{tokens: ',', paramName: "search"});
+			});
+
+			dialog.show();
+
 		});
 
-		const tmph = dojo.connect(dialog, 'onLoad', function () {
-			dojo.disconnect(tmph);
-
-			new Ajax.Autocompleter('tags_str', 'tags_choices',
-				"backend.php?op=article&method=completeTags",
-				{tokens: ',', paramName: "search"});
-		});
-
-		dialog.show();
 	},
 	cdmMoveToId: function (id, params) {
 		params = params || {};
