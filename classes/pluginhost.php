@@ -71,6 +71,8 @@ class PluginHost {
 	const HOOK_HEADLINES_CUSTOM_SORT_OVERRIDE = 47;
 	const HOOK_HEADLINE_TOOLBAR_SELECT_MENU_ITEM = 48;
 
+	const HOOK_MODIFY_MEDIA = 49;
+
 	const KIND_ALL = 1;
 	const KIND_SYSTEM = 2;
 	const KIND_USER = 3;

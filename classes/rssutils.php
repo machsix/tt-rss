@@ -942,7 +942,7 @@ class RSSUtils {
 				Debug::log("force catchup: $entry_force_catchup", Debug::$LOG_VERBOSE);
 
 				if ($cache_images)
-					self::cache_media($entry_content, $site_url);
+					self::cache_media($entry_content, $site_url, $pluginhost);
 
 				$csth = $pdo->prepare("SELECT id FROM ttrss_entries
 					WHERE guid IN (?, ?, ?)");
@@ -1310,9 +1310,10 @@ class RSSUtils {
 	}
 
 	/* TODO: move to DiskCache? */
-	static function cache_media_url($cache, $url, $site_url) {
-		$url = rewrite_relative_url($site_url, $url);
+	static function cache_media_url($cache, $url, $site_url, &$pluginhost) {
+		$url = UrlHelper::rewrite_relative($site_url, $url);
 		$local_filename = $cache->getCachePath($url);
+		$fullpath = $cache->getFullPath($local_filename);
 
 		Debug::log("cache_media: checking $url", Debug::$LOG_VERBOSE);
 
@@ -1329,6 +1330,9 @@ class RSSUtils {
 
 			if ($file_content) {
 				$cache->put($local_filename, $file_content);
+				foreach ($pluginhost->get_hooks(PluginHost::HOOK_MODIFY_MEDIA) as $plugin) {
+					$plugin->hook_modify_media($fullpath, $site_url);
+				}
 			} else {
 				Debug::log("cache_media: failed with $fetch_last_error_code: $fetch_last_error");
 			}
@@ -1338,7 +1342,7 @@ class RSSUtils {
 	}
 
 	/* TODO: move to DiskCache? */
-	static function cache_media($html, $site_url) {
+	static function cache_media($html, $site_url, &$pluginhost) {
 		$cache = new DiskCache("images", $site_url);
 
 		if ($html && $cache->isWritable()) {
@@ -1351,7 +1355,7 @@ class RSSUtils {
 				foreach ($entries as $entry) {
 					foreach (array('src', 'poster') as $attr) {
 						if ($entry->hasAttribute($attr) && strpos($entry->getAttribute($attr), "data:") !== 0) {
-							self::cache_media_url($cache, $entry->getAttribute($attr), $site_url);
+							self::cache_media_url($cache, $entry->getAttribute($attr), $site_url, $pluginhost);
 						}
 					}
 
@@ -1359,7 +1363,7 @@ class RSSUtils {
 						$matches = self::decode_srcset($entry->getAttribute('srcset'));
 
 						for ($i = 0; $i < count($matches); $i++) {
-							self::cache_media_url($cache, $matches[$i]["url"], $site_url);
+							self::cache_media_url($cache, $matches[$i]["url"], $site_url, $pluginhost);
 						}
 					}
 				}
