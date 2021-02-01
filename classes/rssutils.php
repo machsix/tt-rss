@@ -1310,7 +1310,7 @@ class RSSUtils {
 	}
 
 	/* TODO: move to DiskCache? */
-	static function cache_media_url($cache, $url, $site_url, &$pluginhost) {
+	static function cache_media_url($cache, $url, $site_url, &$pluginhost, &$entry) {
 		$url = UrlHelper::rewrite_relative($site_url, $url);
 		$local_filename = $cache->getCachePath($url);
 		$fullpath = $cache->getFullPath($local_filename);
@@ -1331,7 +1331,7 @@ class RSSUtils {
 			if ($file_content) {
 				$cache->put($local_filename, $file_content);
 				foreach ($pluginhost->get_hooks(PluginHost::HOOK_MODIFY_MEDIA) as $plugin) {
-					$plugin->hook_modify_media($fullpath, $site_url);
+					$plugin->hook_modify_media($fullpath, $site_url, $entry);
 				}
 			} else {
 				Debug::log("cache_media: failed with $fetch_last_error_code: $fetch_last_error");
@@ -1355,7 +1355,7 @@ class RSSUtils {
 				foreach ($entries as $entry) {
 					foreach (array('src', 'poster') as $attr) {
 						if ($entry->hasAttribute($attr) && strpos($entry->getAttribute($attr), "data:") !== 0) {
-							self::cache_media_url($cache, $entry->getAttribute($attr), $site_url, $pluginhost);
+							self::cache_media_url($cache, $entry->getAttribute($attr), $site_url, $pluginhost, $entry);
 						}
 					}
 

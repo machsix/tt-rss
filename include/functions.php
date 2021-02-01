@@ -628,7 +628,7 @@
 
 				$ttrss_version["last_error"] = $last_error;
 
-				user_error($last_error, E_USER_WARNING);
+				// user_error($last_error, E_USER_WARNING);
 			}
 		}
 
