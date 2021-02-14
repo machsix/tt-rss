@@ -187,7 +187,7 @@ class FeverAPI extends Handler {
     // TODO: holy crap replace this junk
     private function array_to_xml($array, $container = 'response', $is_root = true)
     {
-        if (!is_array($array)) return array_to_xml(array($array));
+        if (!is_array($array)) return $this->array_to_xml(array($array));
 
         $xml = '';
 
@@ -213,11 +213,11 @@ class FeverAPI extends Handler {
             {
                 if (array_keys($value) !== array_keys(array_keys($value)))
                 {
-                    $xml .= array_to_xml($value, '', false);
+                    $xml .= $this->array_to_xml($value, '', false);
                 }
                 else
                 {
-                    $xml .= array_to_xml($value, r('/s$/', '', $elem), false);
+                    $xml .= $this->array_to_xml($value, preg_replace('/s$/', '', $elem), false);
                 }
             }
             else

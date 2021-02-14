@@ -58,7 +58,7 @@ class eighteen_comic extends Plugin
         $py += $remainder;
       }
       // $temp_img = imagecrop($img, ['x' => 0, 'y' => $py, 'width' => $copyW, 'height' => $copyH]);
-      imagecopy($dest, $img, 0, $y, 0, $py, $copyW, $copyH);
+      imagecopy($dest, $img, 0, $py, 0, $y, $copyW, $copyH);
     }
     // Debug::log($file . ' width = '. strval($w));
     imagedestroy($img);
@@ -79,9 +79,12 @@ class eighteen_comic extends Plugin
     if (strcmp($hostname, '18comic.vip') == 0) {
       if (intVal($entry->getAttribute('data-scramble')) == 1) {
         $this->crop_image($fullpath);
+         Debug::log($entry->getAttribute('src') . ' scramble');
+         Debug::log($fullpath . ' scramble');
         return True;
       }
-      Debug::log($entry->getAttribute('src') . ' not scramble');
+    } else {
+      Debug::log($hostname . " not match");
     }
 
     return False;
