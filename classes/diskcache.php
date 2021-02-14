@@ -223,6 +223,7 @@ class DiskCache
 
 	public function exists($filename)
 	{
+		Debug::log("Check exists: " . $this->getFullPath($filename));
 		return file_exists($this->getFullPath($filename));
 	}
 
@@ -342,7 +343,7 @@ class DiskCache
 	// this is called separately after sanitize() and plugin render article hooks to allow
 	// plugins work on original source URLs used before caching
 	// NOTE: URLs should be already absolutized because this is called after sanitize()
-	static public function rewriteUrls($str)
+	static public function rewriteUrls($str, $siteUrl = "", $cacheImages = false)
 	{
 		$res = trim($str);
 		if (!$res) return '';
@@ -361,8 +362,11 @@ class DiskCache
 					if ($entry->hasAttribute($attr)) {
 						$url = $entry->getAttribute($attr);
 						$cached_filename = $cache->getCachePath($url);
-
-						if ($cache->exists($cached_filename)) {
+                        $existFile = $cache->exists($cached_filename);
+						if ($existFile) {
+							Debug::log("Found: " . $cached_filename);
+						}
+						if ($existFile || $cacheImages) {
 							$url = $cache->getUrl($cached_filename);
 
 							$entry->setAttribute($attr, $url);
@@ -379,7 +383,7 @@ class DiskCache
 					for ($i = 0; $i < count($matches); $i++) {
 						$cached_filename = $cache->getCachePath($matches[$i]["url"]);
 
-						if ($cache->exists($cached_filename)) {
+						if ($cache->exists($cached_filename) || $cacheImages) {
 							$matches[$i]["url"] = $cache->getUrl($cached_filename);
 
 							$need_saving = true;

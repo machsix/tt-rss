@@ -940,6 +940,7 @@ class RSSUtils {
 				}
 
 				Debug::log("force catchup: $entry_force_catchup", Debug::$LOG_VERBOSE);
+                Debug::log("cache media: $cache_images", Debug::$LOG_VERBOSE);
 
 				if ($cache_images)
 					self::cache_media($entry_content, $site_url, $pluginhost);
